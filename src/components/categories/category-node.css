@@ -1,0 +1,40 @@
+:host {
+  display: block;
+}
+
+.node {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.name {
+  flex: 1;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+button {
+  width: var(--tap-target-min);
+  height: var(--tap-target-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.children {
+  padding-left: var(--space-5);
+}

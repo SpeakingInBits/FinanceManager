@@ -1,0 +1,57 @@
+/*
+  Shared with shadow roots via adoptStyles() (in addition to global.css for
+  light DOM), since shadow DOM doesn't inherit class-selector rules from the
+  document stylesheet.
+*/
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--tap-target-min);
+  padding-inline: var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border: 1px solid transparent;
+}
+
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.btn-icon {
+  min-width: var(--tap-target-min);
+  padding-inline: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.field input,
+.field select,
+.field textarea {
+  min-height: var(--tap-target-min);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.field textarea {
+  min-height: 80px;
+  padding-top: var(--space-2);
+}

@@ -1,0 +1,18 @@
+:host {
+  display: inline-flex;
+}
+
+button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-target-min);
+  height: var(--tap-target-min);
+  border-radius: var(--radius-full);
+  color: var(--color-text);
+  font-size: 1.25rem;
+}
+
+button:hover {
+  background: var(--color-bg);
+}

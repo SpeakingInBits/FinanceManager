@@ -1,0 +1,33 @@
+:host {
+  display: block;
+}
+
+.track {
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-income);
+  transition: width 0.2s ease;
+}
+
+.fill.warning {
+  background: var(--color-warning);
+}
+
+.fill.over {
+  background: var(--color-danger);
+}
+
+.label {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}

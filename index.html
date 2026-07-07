@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111214" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="Private, local-first finance tracker" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <title>Finance Tracker</title>
+    <script>
+      // Set the theme before first paint to avoid a flash of the wrong theme.
+      (function () {
+        var stored = localStorage.getItem('theme');
+        var mode = stored === 'light' || stored === 'dark' ? stored : 'system';
+        var resolved =
+          mode === 'system'
+            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+            : mode;
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.dataset.themeMode = mode;
+      })();
+    </script>
+  </head>
+  <body>
+    <app-shell></app-shell>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

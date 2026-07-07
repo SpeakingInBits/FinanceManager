@@ -1,0 +1,64 @@
+:host {
+  display: block;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+}
+
+.info .note {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.info .meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.amount.income {
+  color: var(--color-income);
+}
+
+.amount.expense {
+  color: var(--color-expense);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+button {
+  width: var(--tap-target-min);
+  height: var(--tap-target-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+}

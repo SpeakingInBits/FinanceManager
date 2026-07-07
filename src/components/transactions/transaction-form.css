@@ -1,0 +1,46 @@
+:host {
+  display: block;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.type-toggle {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.type-toggle button {
+  flex: 1;
+  min-height: var(--tap-target-min);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.type-toggle button[aria-pressed='true'] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-bg);
+}
+
+.row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.row .field {
+  flex: 1;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
