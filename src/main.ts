@@ -15,10 +15,10 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 
 if ('serviceWorker' in navigator) {
   void import('virtual:pwa-register').then(({ registerSW }) => {
-    registerSW({
+    const updateSW = registerSW({
       onNeedRefresh() {
         if (confirm('A new version is available. Reload now?')) {
-          window.location.reload();
+          void updateSW(true);
         }
       },
     });

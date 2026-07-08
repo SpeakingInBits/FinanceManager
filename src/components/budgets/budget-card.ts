@@ -1,6 +1,6 @@
 import css from './budget-card.css?inline';
 import { adoptStyles } from '@/utils/adopt-styles';
-import { computeBudgetProgress } from '@/utils/budget';
+import { computeBudgetStats } from '@/utils/budget';
 import type { Budget } from '@/models/budget';
 import type { Transaction } from '@/models/transaction';
 import type { BudgetProgressBar } from './budget-progress-bar';
@@ -57,8 +57,7 @@ export class BudgetCard extends HTMLElement {
     `;
 
     const bar = root.querySelector('budget-progress-bar') as BudgetProgressBar;
-    bar.total = b.amount;
-    bar.progress = computeBudgetProgress(b, this._transactions);
+    bar.stats = computeBudgetStats(b, this._transactions);
 
     root.querySelector('.edit-btn')!.addEventListener('click', () => {
       this.dispatchEvent(

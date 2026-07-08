@@ -1,11 +1,10 @@
 import css from './budget-progress-bar.css?inline';
 import { adoptStyles } from '@/utils/adopt-styles';
 import { formatCents } from '@/utils/currency';
-import type { BudgetProgress } from '@/utils/budget';
+import type { BudgetStats } from '@/utils/budget';
 
 export class BudgetProgressBar extends HTMLElement {
-  private _progress?: BudgetProgress;
-  private _total = 0;
+  private _stats?: BudgetStats;
 
   constructor() {
     super();
@@ -13,13 +12,8 @@ export class BudgetProgressBar extends HTMLElement {
     adoptStyles(root, css);
   }
 
-  set progress(value: BudgetProgress) {
-    this._progress = value;
-    this.render();
-  }
-
-  set total(value: number) {
-    this._total = value;
+  set stats(value: BudgetStats) {
+    this._stats = value;
     this.render();
   }
 
@@ -28,18 +22,19 @@ export class BudgetProgressBar extends HTMLElement {
   }
 
   private render(): void {
-    if (!this._progress) return;
-    const p = this._progress;
-    const pct = Math.min(p.percent * 100, 100);
-    const state = p.over ? 'over' : p.percent > 0.85 ? 'warning' : '';
+    if (!this._stats) return;
+    const s = this._stats;
+    const pct = Math.min(s.contributionPercent * 100, 100);
+    const state = pct >= 85 && pct < 100 ? 'warning' : '';
     this.shadowRoot!.innerHTML = `
       <div class="track">
         <div class="fill ${state}" style="width:${pct}%"></div>
       </div>
       <div class="label">
-        <span>${formatCents(p.spent)} spent</span>
-        <span>${formatCents(this._total)} budget</span>
+        <span>${formatCents(s.contributed)} contributed</span>
+        <span>${formatCents(s.target)} goal</span>
       </div>
+      <div class="balance ${s.overdrawn ? 'over' : ''}">Balance: ${formatCents(s.balance)}</div>
     `;
   }
 }

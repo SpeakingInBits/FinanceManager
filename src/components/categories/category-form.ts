@@ -2,14 +2,14 @@ import css from './category-form.css?inline';
 import { adoptStyles } from '@/utils/adopt-styles';
 import { appStore } from '@/state/app-store';
 import { AppEvents, type CategorySubmitDetail } from '@/state/events';
-import type { Category, CategoryType } from '@/models/category';
+import type { Category } from '@/models/category';
 
 const DEFAULT_COLOR = '#2f6fed';
 
 export class CategoryForm extends HTMLElement {
   private unsubscribe?: () => void;
   private editing: Category | null = null;
-  private type: CategoryType = 'expense';
+  private _presetParentId: string | null = null;
 
   constructor() {
     super();
@@ -19,7 +19,13 @@ export class CategoryForm extends HTMLElement {
 
   set category(value: Category | null) {
     this.editing = value;
-    this.type = value?.type ?? 'expense';
+    this._presetParentId = null;
+    this.render();
+  }
+
+  /** Pre-selects a parent for a fresh "add subcategory" flow; ignored once editing is set. */
+  set presetParentId(id: string | null) {
+    this._presetParentId = id;
     this.render();
   }
 
@@ -37,15 +43,10 @@ export class CategoryForm extends HTMLElement {
     const c = this.editing;
     const parentOptions = appStore
       .getState()
-      .categories.filter((cat) => cat.type === this.type && cat.id !== c?.id && cat.parentId === null);
+      .categories.filter((cat) => cat.id !== c?.id && cat.parentId === null);
 
     root.innerHTML = `
       <form>
-        <div class="type-toggle" role="group" aria-label="Category type">
-          <button type="button" data-type="expense" aria-pressed="${this.type === 'expense'}">Expense</button>
-          <button type="button" data-type="income" aria-pressed="${this.type === 'income'}">Income</button>
-        </div>
-
         <div class="field">
           <label for="name">Name</label>
           <input type="text" id="name" value="${c?.name ?? ''}" required />
@@ -58,7 +59,7 @@ export class CategoryForm extends HTMLElement {
             ${parentOptions
               .map(
                 (p) =>
-                  `<option value="${p.id}" ${p.id === c?.parentId ? 'selected' : ''}>${p.name}</option>`,
+                  `<option value="${p.id}" ${p.id === (c?.parentId ?? this._presetParentId) ? 'selected' : ''}>${p.name}</option>`,
               )
               .join('')}
           </select>
@@ -76,13 +77,6 @@ export class CategoryForm extends HTMLElement {
       </form>
     `;
 
-    root.querySelectorAll<HTMLButtonElement>('.type-toggle button').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        this.type = btn.dataset.type as CategoryType;
-        this.render();
-      });
-    });
-
     root.querySelector('.cancel-btn')!.addEventListener('click', () => {
       this.dispatchEvent(new CustomEvent('form-cancel', { bubbles: true, composed: true }));
     });
@@ -99,7 +93,6 @@ export class CategoryForm extends HTMLElement {
             id: c?.id,
             input: {
               name: nameEl.value.trim(),
-              type: this.type,
               parentId: parentEl.value || null,
               color: colorEl.value,
             },

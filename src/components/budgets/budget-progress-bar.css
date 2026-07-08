@@ -31,3 +31,14 @@
   color: var(--color-text-muted);
   margin-top: var(--space-1);
 }
+
+.balance {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+.balance.over {
+  color: var(--color-danger);
+  font-weight: 600;
+}

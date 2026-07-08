@@ -13,6 +13,8 @@ const ICONS: Record<string, string> = {
   moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" />',
   auto: '<circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 0 0 18Z" fill="currentColor" stroke="none" />',
   chevron: '<path d="m9 6 6 6-6 6" />',
+  'arrow-up': '<path d="M12 19V5M5 12l7-7 7 7" />',
+  'arrow-down': '<path d="M12 5v14M5 12l7 7 7-7" />',
 };
 
 export class AppIcon extends HTMLElement {

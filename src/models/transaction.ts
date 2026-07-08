@@ -8,6 +8,7 @@ export interface Transaction {
   /** Epoch millis. */
   date: number;
   categoryId: string | null;
+  subcategoryId: string | null;
   budgetId: string | null;
   note: string;
   createdAt: number;

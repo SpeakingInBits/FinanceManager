@@ -35,6 +35,27 @@ button {
   color: var(--color-text-muted);
 }
 
+button:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.collapse-btn,
+.collapse-spacer {
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.collapse-btn app-icon {
+  display: inline-flex;
+  transform: rotate(90deg);
+  transition: transform 0.15s ease;
+}
+
+.node.collapsed .collapse-btn app-icon {
+  transform: rotate(0deg);
+}
+
 .children {
   padding-left: var(--space-5);
 }
