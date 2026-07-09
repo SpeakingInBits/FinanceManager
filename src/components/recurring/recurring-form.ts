@@ -1,17 +1,14 @@
-import css from './transaction-form.css?inline';
+import css from './recurring-form.css?inline';
 import { adoptStyles } from '@/utils/adopt-styles';
 import { appStore } from '@/state/app-store';
-import {
-  AppEvents,
-  type RecurringTransactionSubmitDetail,
-  type TransactionSubmitDetail,
-} from '@/state/events';
-import { millisToDateInput, dateInputToMillis, monthStart } from '@/utils/date';
-import type { Transaction, TransactionType } from '@/models/transaction';
+import { AppEvents, type RecurringTransactionSubmitDetail } from '@/state/events';
+import { monthStart } from '@/utils/date';
+import type { RecurringTransaction } from '@/models/recurring-transaction';
+import type { TransactionType } from '@/models/transaction';
 
-export class TransactionForm extends HTMLElement {
+export class RecurringForm extends HTMLElement {
   private unsubscribe?: () => void;
-  private editing: Transaction | null = null;
+  private editing: RecurringTransaction | null = null;
   private type: TransactionType = 'expense';
   private categoryId: string | null = null;
 
@@ -21,7 +18,7 @@ export class TransactionForm extends HTMLElement {
     adoptStyles(root, css);
   }
 
-  set transaction(value: Transaction | null) {
+  set recurringTransaction(value: RecurringTransaction | null) {
     this.editing = value;
     this.type = value?.type ?? 'expense';
     this.categoryId = value?.categoryId ?? null;
@@ -40,7 +37,7 @@ export class TransactionForm extends HTMLElement {
   private render(): void {
     const root = this.shadowRoot!;
     const { categories, budgets } = appStore.getState();
-    const t = this.editing;
+    const r = this.editing;
     const categoryOptions = categories.filter((c) => c.parentId === null);
     const subcategoryOptions = categories.filter((c) => c.parentId === this.categoryId);
     const budgetOptions = budgets;
@@ -52,28 +49,28 @@ export class TransactionForm extends HTMLElement {
           <button type="button" data-type="income" aria-pressed="${this.type === 'income'}">Income</button>
         </div>
 
-        <div class="field">
-          <label for="amount">Amount</label>
-          <amount-input id="amount" value="${t?.amount ?? 0}"></amount-input>
-        </div>
-
         <div class="row">
           <div class="field">
-            <label for="date">Date</label>
-            <input type="date" id="date" value="${millisToDateInput(t?.date ?? Date.now())}" required />
+            <label for="amount">Amount</label>
+            <amount-input id="amount" value="${r?.amount ?? 0}"></amount-input>
           </div>
           <div class="field">
-            <label for="category">Category</label>
-            <select id="category">
-              <option value="">Uncategorized</option>
-              ${categoryOptions
-                .map(
-                  (c) =>
-                    `<option value="${c.id}" ${c.id === this.categoryId ? 'selected' : ''}>${c.name}</option>`,
-                )
-                .join('')}
-            </select>
+            <label for="day">Day of month</label>
+            <input type="number" id="day" min="1" max="31" value="${r?.dayOfMonth ?? 1}" required />
           </div>
+        </div>
+
+        <div class="field">
+          <label for="category">Category</label>
+          <select id="category">
+            <option value="">Uncategorized</option>
+            ${categoryOptions
+              .map(
+                (c) =>
+                  `<option value="${c.id}" ${c.id === this.categoryId ? 'selected' : ''}>${c.name}</option>`,
+              )
+              .join('')}
+          </select>
         </div>
 
         ${
@@ -86,7 +83,7 @@ export class TransactionForm extends HTMLElement {
             ${subcategoryOptions
               .map(
                 (c) =>
-                  `<option value="${c.id}" ${c.id === t?.subcategoryId ? 'selected' : ''}>${c.name}</option>`,
+                  `<option value="${c.id}" ${c.id === r?.subcategoryId ? 'selected' : ''}>${c.name}</option>`,
               )
               .join('')}
           </select>
@@ -101,7 +98,7 @@ export class TransactionForm extends HTMLElement {
             ${budgetOptions
               .map(
                 (b) =>
-                  `<option value="${b.id}" ${b.id === t?.budgetId ? 'selected' : ''}>${b.name}</option>`,
+                  `<option value="${b.id}" ${b.id === r?.budgetId ? 'selected' : ''}>${b.name}</option>`,
               )
               .join('')}
           </select>
@@ -109,21 +106,12 @@ export class TransactionForm extends HTMLElement {
 
         <div class="field">
           <label for="note">Note</label>
-          <textarea id="note">${t?.note ?? ''}</textarea>
+          <textarea id="note">${r?.note ?? ''}</textarea>
         </div>
-
-        ${
-          !t
-            ? `
-        <div class="field checkbox-field">
-          <label><input type="checkbox" id="repeat" /> Repeat monthly</label>
-        </div>`
-            : ''
-        }
 
         <div class="form-actions">
           <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
-          <button type="submit" class="btn">${t ? 'Save' : 'Add'}</button>
+          <button type="submit" class="btn">${r ? 'Save' : 'Add'}</button>
         </div>
       </form>
     `;
@@ -147,59 +135,37 @@ export class TransactionForm extends HTMLElement {
     root.querySelector('form')!.addEventListener('submit', (e) => {
       e.preventDefault();
       const amountEl = root.querySelector<HTMLElement & { valueCents: number }>('#amount')!;
-      const dateEl = root.querySelector<HTMLInputElement>('#date')!;
+      const dayEl = root.querySelector<HTMLInputElement>('#day')!;
       const categoryEl = root.querySelector<HTMLSelectElement>('#category')!;
       const subcategoryEl = root.querySelector<HTMLSelectElement>('#subcategory');
       const budgetEl = root.querySelector<HTMLSelectElement>('#budget')!;
       const noteEl = root.querySelector<HTMLTextAreaElement>('#note')!;
-      const repeatEl = root.querySelector<HTMLInputElement>('#repeat');
-      const pickedDate = dateInputToMillis(dateEl.value);
 
-      if (repeatEl?.checked) {
-        this.dispatchEvent(
-          new CustomEvent<RecurringTransactionSubmitDetail>(AppEvents.RecurringTransactionSubmit, {
-            detail: {
-              input: {
-                type: this.type,
-                amount: amountEl.valueCents,
-                categoryId: categoryEl.value || null,
-                subcategoryId: subcategoryEl?.value || null,
-                budgetId: budgetEl.value || null,
-                note: noteEl.value.trim(),
-                dayOfMonth: new Date(pickedDate).getDate(),
-                startDate: monthStart(pickedDate),
-                endDate: null,
-                lastGeneratedThrough: null,
-                replacesId: null,
-              },
+      this.dispatchEvent(
+        new CustomEvent<RecurringTransactionSubmitDetail>(AppEvents.RecurringTransactionSubmit, {
+          detail: {
+            id: r?.id,
+            input: {
+              type: this.type,
+              amount: amountEl.valueCents,
+              dayOfMonth: Math.min(31, Math.max(1, Number(dayEl.value) || 1)),
+              categoryId: categoryEl.value || null,
+              subcategoryId: subcategoryEl?.value || null,
+              budgetId: budgetEl.value || null,
+              note: noteEl.value.trim(),
+              startDate: r?.startDate ?? monthStart(Date.now()),
+              endDate: r?.endDate ?? null,
+              lastGeneratedThrough: r?.lastGeneratedThrough ?? null,
+              replacesId: r?.replacesId ?? null,
             },
-            bubbles: true,
-            composed: true,
-          }),
-        );
-      } else {
-        this.dispatchEvent(
-          new CustomEvent<TransactionSubmitDetail>(AppEvents.TransactionSubmit, {
-            detail: {
-              id: t?.id,
-              input: {
-                type: this.type,
-                amount: amountEl.valueCents,
-                date: pickedDate,
-                categoryId: categoryEl.value || null,
-                subcategoryId: subcategoryEl?.value || null,
-                budgetId: budgetEl.value || null,
-                note: noteEl.value.trim(),
-              },
-            },
-            bubbles: true,
-            composed: true,
-          }),
-        );
-      }
+          },
+          bubbles: true,
+          composed: true,
+        }),
+      );
       this.dispatchEvent(new CustomEvent('form-done', { bubbles: true, composed: true }));
     });
   }
 }
 
-customElements.define('transaction-form', TransactionForm);
+customElements.define('recurring-form', RecurringForm);

@@ -2,48 +2,41 @@
   display: block;
 }
 
-.row {
+.card {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--color-border);
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
-.swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: var(--radius-full);
-  flex-shrink: 0;
+.title {
+  display: flex;
+  flex-direction: column;
 }
 
-.info {
-  flex: 1;
-  min-width: 0;
+.title .name {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
-.info .note {
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.recurring-badge {
-  font-size: 0.85em;
-  color: var(--color-text-muted);
-  vertical-align: middle;
-}
-
-.info .meta {
+.title .meta {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
 
+.badge {
+  font-size: var(--font-size-sm);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
 .amount {
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 
 .amount.income {
@@ -66,5 +59,4 @@ button {
   align-items: center;
   justify-content: center;
   color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
 }

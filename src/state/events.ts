@@ -1,6 +1,7 @@
 import type { NewBudget } from '@/models/budget';
 import type { NewCategory } from '@/models/category';
 import type { NewTransaction } from '@/models/transaction';
+import type { NewRecurringTransaction } from '@/models/recurring-transaction';
 
 /** Centralized bubbling CustomEvent names dispatched by components and handled by app-shell. */
 export const AppEvents = {
@@ -10,6 +11,9 @@ export const AppEvents = {
   CategoryDelete: 'category-delete',
   BudgetSubmit: 'budget-submit',
   BudgetDelete: 'budget-delete',
+  RecurringTransactionSubmit: 'recurring-transaction-submit',
+  RecurringTransactionStop: 'recurring-transaction-stop',
+  RecurringTransactionDelete: 'recurring-transaction-delete',
   ThemeChange: 'theme-change',
 } as const;
 
@@ -37,6 +41,19 @@ export interface BudgetSubmitDetail {
 }
 
 export interface BudgetDeleteDetail {
+  id: string;
+}
+
+export interface RecurringTransactionSubmitDetail {
+  id?: string;
+  input: NewRecurringTransaction;
+}
+
+export interface RecurringTransactionStopDetail {
+  id: string;
+}
+
+export interface RecurringTransactionDeleteDetail {
   id: string;
 }
 

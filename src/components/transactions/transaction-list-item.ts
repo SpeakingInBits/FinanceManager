@@ -42,7 +42,10 @@ export class TransactionListItem extends HTMLElement {
       <div class="row">
         <span class="swatch" style="background:${this._categoryColor}"></span>
         <div class="info">
-          <div class="note">${t.note || this._categoryName}</div>
+          <div class="note">
+            ${t.note || this._categoryName}
+            ${t.recurringId ? '<app-icon name="repeat" class="recurring-badge"></app-icon>' : ''}
+          </div>
           <div class="meta">${this._categoryName} · ${formatDate(t.date)}</div>
         </div>
         <span class="amount ${t.type}">${sign}${formatCents(t.amount)}</span>

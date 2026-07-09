@@ -29,3 +29,26 @@ export function monthBounds(millis: number): [number, number] {
   const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
   return [start, end];
 }
+
+/** Epoch millis for the 1st of the month containing `millis`. */
+export function monthStart(millis: number): number {
+  return monthBounds(millis)[0];
+}
+
+/** Epoch millis for the 1st of the month `n` months after the month containing `monthMillis`. */
+export function addMonths(monthMillis: number, n: number): number {
+  const d = new Date(monthMillis);
+  return new Date(d.getFullYear(), d.getMonth() + n, 1).getTime();
+}
+
+/** Number of days in the month containing `monthMillis`. */
+export function daysInMonth(monthMillis: number): number {
+  const d = new Date(monthMillis);
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+}
+
+/** Epoch millis for `day` within the month containing `monthMillis`, clamped to that month's length. */
+export function dayInMonth(monthMillis: number, day: number): number {
+  const d = new Date(monthMillis);
+  return new Date(d.getFullYear(), d.getMonth(), Math.min(day, daysInMonth(monthMillis))).getTime();
+}

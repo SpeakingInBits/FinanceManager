@@ -63,7 +63,7 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
 
           db.createObjectStore('settings', { keyPath: 'key' });
         }
-        // Future migrations: if (oldVersion < 5) { ... } — never edit the blocks above.
+        // Future migrations: if (oldVersion < 6) { ... } — never edit the blocks above.
 
         if (oldVersion < 2) {
           // Budget.amount was renamed to Budget.targetAmount; rename the field on existing records.
@@ -110,6 +110,10 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
             }
             cursor = await cursor.continue();
           }
+        }
+
+        if (oldVersion < 5) {
+          db.createObjectStore('recurringTransactions', { keyPath: 'id' });
         }
       },
     });

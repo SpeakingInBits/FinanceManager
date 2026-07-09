@@ -2,9 +2,10 @@ import type { DBSchema } from 'idb';
 import type { Transaction } from '@/models/transaction';
 import type { Category } from '@/models/category';
 import type { Budget } from '@/models/budget';
+import type { RecurringTransaction } from '@/models/recurring-transaction';
 
 export const DB_NAME = 'finance-tracker-db';
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 
 export interface FinanceDB extends DBSchema {
   transactions: {
@@ -32,6 +33,11 @@ export interface FinanceDB extends DBSchema {
       'by-category': string;
       'by-period': string;
     };
+  };
+  recurringTransactions: {
+    key: string;
+    value: RecurringTransaction;
+    indexes: Record<string, never>;
   };
   settings: {
     key: string;

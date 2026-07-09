@@ -10,6 +10,7 @@ export const routes: RouteDef[] = [
   { path: '/transactions', tag: 'transactions-view', label: 'Transactions', icon: 'list' },
   { path: '/categories', tag: 'categories-view', label: 'Categories', icon: 'tag' },
   { path: '/budgets', tag: 'budgets-view', label: 'Budgets', icon: 'wallet' },
+  { path: '/recurring', tag: 'recurring-view', label: 'Recurring', icon: 'repeat' },
   { path: '/charts', tag: 'charts-view', label: 'Charts', icon: 'chart' },
 ];
 

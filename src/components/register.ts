@@ -21,6 +21,10 @@ import '@/components/budgets/budget-card';
 import '@/components/budgets/budget-list';
 import '@/components/budgets/budget-form';
 
+import '@/components/recurring/recurring-card';
+import '@/components/recurring/recurring-list';
+import '@/components/recurring/recurring-form';
+
 import '@/charts/pie-chart';
 import '@/charts/sankey-chart';
 
@@ -28,6 +32,7 @@ import '@/components/views/dashboard-view';
 import '@/components/views/transactions-view';
 import '@/components/views/categories-view';
 import '@/components/views/budgets-view';
+import '@/components/views/recurring-view';
 import '@/components/views/charts-view';
 
 import '@/app-shell';

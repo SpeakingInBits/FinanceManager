@@ -15,6 +15,8 @@ const ICONS: Record<string, string> = {
   chevron: '<path d="m9 6 6 6-6 6" />',
   'arrow-up': '<path d="M12 19V5M5 12l7-7 7 7" />',
   'arrow-down': '<path d="M12 5v14M5 12l7 7 7-7" />',
+  repeat:
+    '<path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />',
 };
 
 export class AppIcon extends HTMLElement {
