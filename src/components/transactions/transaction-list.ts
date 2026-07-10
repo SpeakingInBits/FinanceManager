@@ -2,7 +2,7 @@ import css from './transaction-list.css?inline';
 import { adoptStyles } from '@/utils/adopt-styles';
 import { appStore } from '@/state/app-store';
 import { AppEvents, type TransactionDeleteDetail } from '@/state/events';
-import type { Transaction } from '@/models/transaction';
+import { occurrencesForMonth, type MonthlyOccurrence } from '@/utils/recurrence';
 import type { Category } from '@/models/category';
 
 export class TransactionList extends HTMLElement {
@@ -15,11 +15,8 @@ export class TransactionList extends HTMLElement {
   }
 
   connectedCallback(): void {
-    this.unsubscribe = appStore.subscribe((state) =>
-      this.render(state.transactions, state.categories),
-    );
-    const state = appStore.getState();
-    this.render(state.transactions, state.categories);
+    this.unsubscribe = appStore.subscribe(() => this.renderFromState());
+    this.renderFromState();
 
     this.shadowRoot!.addEventListener('delete', (e) => {
       const { id } = (e as CustomEvent<{ id: string }>).detail;
@@ -46,24 +43,30 @@ export class TransactionList extends HTMLElement {
     this.unsubscribe?.();
   }
 
-  private render(transactions: Transaction[], categories: Category[]): void {
+  private renderFromState(): void {
+    const { transactions, categories, selectedMonth } = appStore.getState();
+    this.render(occurrencesForMonth(transactions, selectedMonth), categories);
+  }
+
+  private render(occurrences: MonthlyOccurrence[], categories: Category[]): void {
     const root = this.shadowRoot!;
-    if (transactions.length === 0) {
-      root.innerHTML = `<empty-state message="No transactions yet" icon="list"></empty-state>`;
+    if (occurrences.length === 0) {
+      root.innerHTML = `<empty-state message="No transactions this month" icon="list"></empty-state>`;
       return;
     }
     const byId = new Map(categories.map((c) => [c.id, c]));
-    const sorted = [...transactions].sort((a, b) => b.date - a.date);
+    const sorted = [...occurrences].sort((a, b) => b.displayDate - a.displayDate);
     root.innerHTML = `<div class="list"></div>`;
     const list = root.querySelector('.list')!;
-    for (const t of sorted) {
+    for (const occurrence of sorted) {
+      const { transaction: t } = occurrence;
       const item = document.createElement('transaction-list-item') as HTMLElement & {
-        transaction: Transaction;
+        occurrence: MonthlyOccurrence;
         categoryName: string;
         categoryColor: string;
       };
       const category = t.categoryId ? byId.get(t.categoryId) : undefined;
-      item.transaction = t;
+      item.occurrence = occurrence;
       item.categoryName = category?.name ?? 'Uncategorized';
       item.categoryColor = category?.color ?? '#9aa0a6';
       list.appendChild(item);

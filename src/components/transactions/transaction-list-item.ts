@@ -2,10 +2,12 @@ import css from './transaction-list-item.css?inline';
 import { adoptStyles } from '@/utils/adopt-styles';
 import { formatCents } from '@/utils/currency';
 import { formatDate } from '@/utils/date';
-import type { Transaction } from '@/models/transaction';
+import type { MonthlyOccurrence } from '@/utils/recurrence';
+
+const RECURRENCE_LABEL = { monthly: 'Monthly', yearly: 'Yearly' } as const;
 
 export class TransactionListItem extends HTMLElement {
-  private _transaction!: Transaction;
+  private _occurrence!: MonthlyOccurrence;
   private _categoryName = 'Uncategorized';
   private _categoryColor = '#9aa0a6';
 
@@ -15,8 +17,8 @@ export class TransactionListItem extends HTMLElement {
     adoptStyles(root, css);
   }
 
-  set transaction(value: Transaction) {
-    this._transaction = value;
+  set occurrence(value: MonthlyOccurrence) {
+    this._occurrence = value;
     this.render();
   }
 
@@ -35,17 +37,20 @@ export class TransactionListItem extends HTMLElement {
   }
 
   private render(): void {
-    if (!this._transaction) return;
-    const t = this._transaction;
+    if (!this._occurrence) return;
+    const { transaction: t, displayDate, displayAmount } = this._occurrence;
     const sign = t.type === 'income' ? '+' : '-';
+    const recurrenceMeta = t.recurrence
+      ? ` · ${RECURRENCE_LABEL[t.recurrence]} (${formatCents(t.amount)}/${t.recurrence === 'yearly' ? 'yr' : 'mo'})`
+      : '';
     this.shadowRoot!.innerHTML = `
       <div class="row">
         <span class="swatch" style="background:${this._categoryColor}"></span>
         <div class="info">
           <div class="note">${t.note || this._categoryName}</div>
-          <div class="meta">${this._categoryName} · ${formatDate(t.date)}</div>
+          <div class="meta">${this._categoryName} · ${formatDate(displayDate)}${recurrenceMeta}</div>
         </div>
-        <span class="amount ${t.type}">${sign}${formatCents(t.amount)}</span>
+        <span class="amount ${t.type}">${sign}${formatCents(displayAmount)}</span>
         <div class="actions">
           <button type="button" class="edit-btn" aria-label="Edit"><app-icon name="edit"></app-icon></button>
           <button type="button" class="delete-btn" aria-label="Delete"><app-icon name="trash"></app-icon></button>

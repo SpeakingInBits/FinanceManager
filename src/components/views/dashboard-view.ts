@@ -1,6 +1,6 @@
 import { appStore } from '@/state/app-store';
 import { formatCents } from '@/utils/currency';
-import { monthBounds } from '@/utils/date';
+import { occurrencesForMonth } from '@/utils/recurrence';
 import { categoryBreakdown } from '@/charts/chart-utils';
 import type { PieChart } from '@/charts/pie-chart';
 
@@ -14,17 +14,19 @@ export class DashboardView extends HTMLElement {
         <h1>Dashboard</h1>
       </div>
 
+      <month-nav></month-nav>
+
       <div class="stat-grid">
         <div class="card stat-tile">
-          <div class="stat-label">Income this month</div>
+          <div class="stat-label">Income</div>
           <div class="stat-value income-stat"></div>
         </div>
         <div class="card stat-tile">
-          <div class="stat-label">Expenses this month</div>
+          <div class="stat-label">Expenses</div>
           <div class="stat-value expense-stat"></div>
         </div>
         <div class="card stat-tile">
-          <div class="stat-label">Net this month</div>
+          <div class="stat-label">Net</div>
           <div class="stat-value net-stat"></div>
         </div>
       </div>
@@ -46,9 +48,11 @@ export class DashboardView extends HTMLElement {
   }
 
   private update(): void {
-    const { transactions, categories } = appStore.getState();
-    const [start, end] = monthBounds(Date.now());
-    const inMonth = transactions.filter((t) => t.date >= start && t.date <= end);
+    const { transactions, categories, selectedMonth } = appStore.getState();
+    const inMonth = occurrencesForMonth(transactions, selectedMonth).map((o) => ({
+      ...o.transaction,
+      amount: o.displayAmount,
+    }));
 
     const income = inMonth.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = inMonth.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);

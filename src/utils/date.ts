@@ -29,3 +29,20 @@ export function monthBounds(millis: number): [number, number] {
   const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
   return [start, end];
 }
+
+/** Returns epoch millis for the first day of the month containing `millis`. */
+export function startOfMonth(millis: number): number {
+  const d = new Date(millis);
+  return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+}
+
+/** Returns the start-of-month `delta` months away from the month containing `millis`. */
+export function shiftMonth(millis: number, delta: number): number {
+  const d = new Date(millis);
+  return new Date(d.getFullYear(), d.getMonth() + delta, 1).getTime();
+}
+
+/** Formats a month as e.g. "July 2026". */
+export function formatMonthYear(millis: number): string {
+  return new Date(millis).toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+}

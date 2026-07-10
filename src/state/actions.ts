@@ -77,6 +77,10 @@ export async function deleteBudgetAction(id: string): Promise<void> {
   await refreshBudgets();
 }
 
+export function setSelectedMonthAction(millis: number): void {
+  appStore.setState({ selectedMonth: millis });
+}
+
 export async function setThemeModeAction(mode: ThemeMode): Promise<void> {
   const resolved =
     mode === 'system'

@@ -11,6 +11,7 @@ import '@/components/transactions/transaction-list-item';
 import '@/components/transactions/transaction-list';
 import '@/components/transactions/transaction-form';
 import '@/components/transactions/transaction-modal';
+import '@/components/transactions/month-nav';
 
 import '@/components/categories/category-node';
 import '@/components/categories/category-tree';
