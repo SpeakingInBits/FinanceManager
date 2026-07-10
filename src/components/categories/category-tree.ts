@@ -1,25 +1,30 @@
 import css from './category-tree.css?inline';
 import { adoptStyles } from '@/utils/adopt-styles';
-import type { Category, CategoryType } from '@/models/category';
+import { sortCategories } from '@/utils/category';
+import type { Category } from '@/models/category';
 import type { CategoryNode } from './category-node';
 
 export class CategoryTree extends HTMLElement {
   private _categories: Category[] = [];
-  private _type: CategoryType = 'expense';
+  private _collapsedIds = new Set<string>();
 
   constructor() {
     super();
     const root = this.attachShadow({ mode: 'open' });
     adoptStyles(root, css);
+    root.addEventListener('toggle-collapse', (e) => {
+      const { id } = (e as CustomEvent<{ id: string }>).detail;
+      if (this._collapsedIds.has(id)) {
+        this._collapsedIds.delete(id);
+      } else {
+        this._collapsedIds.add(id);
+      }
+      this.render();
+    });
   }
 
   set categories(value: Category[]) {
     this._categories = value;
-    this.render();
-  }
-
-  set type(value: CategoryType) {
-    this._type = value;
     this.render();
   }
 
@@ -29,20 +34,21 @@ export class CategoryTree extends HTMLElement {
 
   private render(): void {
     const root = this.shadowRoot!;
-    const scoped = this._categories.filter((c) => c.type === this._type);
-    const roots = scoped.filter((c) => c.parentId === null);
+    const roots = sortCategories(this._categories.filter((c) => c.parentId === null));
     if (roots.length === 0) {
-      root.innerHTML = `<empty-state message="No ${this._type} categories yet" icon="tag"></empty-state>`;
+      root.innerHTML = '<empty-state message="No categories yet" icon="tag"></empty-state>';
       return;
     }
     root.innerHTML = '<div class="tree"></div>';
     const tree = root.querySelector('.tree')!;
-    for (const category of roots) {
+    roots.forEach((category, i) => {
       const node = document.createElement('category-node') as CategoryNode;
       node.category = category;
-      node.allCategories = scoped;
+      node.allCategories = this._categories;
+      node.collapsed = this._collapsedIds.has(category.id);
+      node.position = { index: i, count: roots.length };
       tree.appendChild(node);
-    }
+    });
   }
 }
 

@@ -11,6 +11,7 @@ export class TransactionForm extends HTMLElement {
   private unsubscribe?: () => void;
   private editing: Transaction | null = null;
   private type: TransactionType = 'expense';
+  private categoryId: string | null = null;
   private recurrence: Transaction['recurrence'] = null;
   private amountCents = 0;
   private note = '';
@@ -25,6 +26,7 @@ export class TransactionForm extends HTMLElement {
   set transaction(value: Transaction | null) {
     this.editing = value;
     this.type = value?.type ?? 'expense';
+    this.categoryId = value?.categoryId ?? null;
     this.recurrence = value?.recurrence ?? null;
     this.amountCents = value?.amount ?? 0;
     this.note = value?.note ?? '';
@@ -45,10 +47,9 @@ export class TransactionForm extends HTMLElement {
     const root = this.shadowRoot!;
     const { categories, budgets } = appStore.getState();
     const t = this.editing;
-    const categoryOptions = categories.filter((c) => c.type === this.type);
-    const budgetOptions = budgets.filter(
-      (b) => b.categoryId === null || categoryOptions.some((c) => c.id === b.categoryId),
-    );
+    const categoryOptions = categories.filter((c) => c.parentId === null);
+    const subcategoryOptions = categories.filter((c) => c.parentId === this.categoryId);
+    const budgetOptions = budgets;
 
     root.innerHTML = `
       <form>
@@ -88,12 +89,30 @@ export class TransactionForm extends HTMLElement {
               ${categoryOptions
                 .map(
                   (c) =>
-                    `<option value="${c.id}" ${c.id === t?.categoryId ? 'selected' : ''}>${c.name}</option>`,
+                    `<option value="${c.id}" ${c.id === this.categoryId ? 'selected' : ''}>${c.name}</option>`,
                 )
                 .join('')}
             </select>
           </div>
         </div>
+
+        ${
+          subcategoryOptions.length > 0
+            ? `
+        <div class="field">
+          <label for="subcategory">Subcategory</label>
+          <select id="subcategory">
+            <option value="">None</option>
+            ${subcategoryOptions
+              .map(
+                (c) =>
+                  `<option value="${c.id}" ${c.id === t?.subcategoryId ? 'selected' : ''}>${c.name}</option>`,
+              )
+              .join('')}
+          </select>
+        </div>`
+            : ''
+        }
 
         <div class="field">
           <label for="budget">Budget</label>
@@ -127,6 +146,11 @@ export class TransactionForm extends HTMLElement {
       });
     });
 
+    root.querySelector<HTMLSelectElement>('#category')!.addEventListener('change', (e) => {
+      this.categoryId = (e.target as HTMLSelectElement).value || null;
+      this.render();
+    });
+
     const recurrenceEl = root.querySelector<HTMLSelectElement>('#recurrence')!;
     recurrenceEl.addEventListener('change', () => {
       this.recurrence = (recurrenceEl.value || null) as Transaction['recurrence'];
@@ -158,6 +182,7 @@ export class TransactionForm extends HTMLElement {
       const amountEl = root.querySelector<HTMLElement & { valueCents: number }>('#amount')!;
       const dateEl = root.querySelector<HTMLInputElement>('#date')!;
       const categoryEl = root.querySelector<HTMLSelectElement>('#category')!;
+      const subcategoryEl = root.querySelector<HTMLSelectElement>('#subcategory');
       const budgetEl = root.querySelector<HTMLSelectElement>('#budget')!;
       const noteEl = root.querySelector<HTMLTextAreaElement>('#note')!;
 
@@ -170,6 +195,7 @@ export class TransactionForm extends HTMLElement {
               amount: amountEl.valueCents,
               date: dateInputToMillis(dateEl.value),
               categoryId: categoryEl.value || null,
+              subcategoryId: subcategoryEl?.value || null,
               budgetId: budgetEl.value || null,
               note: noteEl.value.trim(),
               recurrence: this.recurrence,

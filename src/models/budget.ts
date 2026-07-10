@@ -3,8 +3,8 @@ export type BudgetPeriodType = 'monthly' | 'one-time';
 export interface Budget {
   id: string;
   name: string;
-  /** Integer minor units (cents). */
-  amount: number;
+  /** Integer minor units (cents). Contribution goal for this budget's period window (not a spending cap). */
+  targetAmount: number;
   periodType: BudgetPeriodType;
   /** Epoch millis; for monthly budgets, the month it starts recurring. */
   startDate: number;

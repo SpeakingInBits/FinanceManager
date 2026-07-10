@@ -34,7 +34,8 @@ export class BudgetForm extends HTMLElement {
   private render(): void {
     const root = this.shadowRoot!;
     const b = this.editing;
-    const categories = appStore.getState().categories.filter((c) => c.type === 'expense');
+    const categories = appStore.getState().categories;
+    const amountLabel = this.periodType === 'monthly' ? 'Monthly contribution target' : 'Savings goal';
 
     root.innerHTML = `
       <form>
@@ -44,8 +45,8 @@ export class BudgetForm extends HTMLElement {
         </div>
 
         <div class="field">
-          <label for="amount">Amount</label>
-          <amount-input id="amount" value="${b?.amount ?? 0}"></amount-input>
+          <label for="amount">${amountLabel}</label>
+          <amount-input id="amount" value="${b?.targetAmount ?? 0}"></amount-input>
         </div>
 
         <div class="type-toggle" role="group" aria-label="Period type">
@@ -109,7 +110,7 @@ export class BudgetForm extends HTMLElement {
             id: b?.id,
             input: {
               name: nameEl.value.trim(),
-              amount: amountEl.valueCents,
+              targetAmount: amountEl.valueCents,
               periodType: this.periodType,
               startDate: dateInputToMillis(startEl.value),
               endDate: endEl.value ? dateInputToMillis(endEl.value) : null,

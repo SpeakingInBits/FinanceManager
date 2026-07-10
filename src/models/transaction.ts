@@ -10,6 +10,7 @@ export interface Transaction {
   /** Epoch millis. For recurring transactions, the anchor/start date; it recurs on this day-of-month from here on. */
   date: number;
   categoryId: string | null;
+  subcategoryId: string | null;
   budgetId: string | null;
   note: string;
   /** null = one-off transaction. */

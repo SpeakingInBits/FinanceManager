@@ -7,7 +7,7 @@ import type { NewBudget } from '@/models/budget';
 function newBudget(overrides: Partial<NewBudget> = {}): NewBudget {
   return {
     name: 'Groceries',
-    amount: 10000,
+    targetAmount: 10000,
     periodType: 'monthly',
     startDate: new Date(2026, 0, 1).getTime(),
     endDate: null,
@@ -40,13 +40,15 @@ describe('budgets.repo', () => {
   });
 
   it('updates a budget', async () => {
-    const created = await addBudget(newBudget({ amount: 10000 }));
-    const updated = await updateBudget(created.id, { amount: 20000 });
-    expect(updated.amount).toBe(20000);
+    const created = await addBudget(newBudget({ targetAmount: 10000 }));
+    const updated = await updateBudget(created.id, { targetAmount: 20000 });
+    expect(updated.targetAmount).toBe(20000);
   });
 
   it('throws when updating a missing budget', async () => {
-    await expect(updateBudget('missing', { amount: 1 })).rejects.toThrow('Budget not found: missing');
+    await expect(updateBudget('missing', { targetAmount: 1 })).rejects.toThrow(
+      'Budget not found: missing',
+    );
   });
 
   it('deletes a budget', async () => {

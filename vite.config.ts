@@ -2,11 +2,8 @@ import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 
-// NOTE: once the GitHub repo is created, set `base` to '/<repo-name>/' for
-// project-page hosting (https://<user>.github.io/<repo-name>/), or leave as
-// '/' if this becomes a user/org page.
 export default defineConfig({
-  base: '/',
+  base: '/FinanceManager/',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -55,12 +55,12 @@ export class ChartsView extends HTMLElement {
   }
 
   private updateCharts(): void {
-    const { transactions, categories } = appStore.getState();
+    const { transactions, categories, budgets } = appStore.getState();
     const pie = this.querySelector('pie-chart') as PieChart;
     pie.data = categoryBreakdown(transactions, categories, this.pieType);
 
     const sankey = this.querySelector('sankey-chart') as SankeyChart;
-    sankey.data = buildSankeyGraph(transactions, categories);
+    sankey.data = buildSankeyGraph(transactions, categories, budgets);
   }
 }
 

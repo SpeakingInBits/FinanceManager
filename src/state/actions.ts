@@ -3,6 +3,7 @@ import * as transactionsRepo from '@/db/transactions.repo';
 import * as categoriesRepo from '@/db/categories.repo';
 import * as budgetsRepo from '@/db/budgets.repo';
 import { setSetting } from '@/db/settings.repo';
+import { sortCategories } from '@/utils/category';
 import type { NewTransaction } from '@/models/transaction';
 import type { NewCategory } from '@/models/category';
 import type { NewBudget } from '@/models/budget';
@@ -59,6 +60,32 @@ export async function updateCategoryAction(id: string, input: NewCategory): Prom
 
 export async function deleteCategoryAction(id: string): Promise<void> {
   await categoriesRepo.deleteCategory(id);
+  await refreshCategories();
+}
+
+export async function moveCategoryAction(id: string, direction: 'up' | 'down'): Promise<void> {
+  const { categories } = appStore.getState();
+  const target = categories.find((c) => c.id === id);
+  if (!target) return;
+
+  const siblings = sortCategories(categories.filter((c) => c.parentId === target.parentId));
+  const index = siblings.findIndex((c) => c.id === id);
+  const neighborIndex = direction === 'up' ? index - 1 : index + 1;
+  if (neighborIndex < 0 || neighborIndex >= siblings.length) return;
+
+  const needsNormalization = siblings.some((c) => c.order === undefined);
+  const orders = needsNormalization ? siblings.map((_, i) => i) : siblings.map((c) => c.order!);
+
+  const updates = new Map<string, number>();
+  if (needsNormalization) {
+    siblings.forEach((c, i) => updates.set(c.id, orders[i]!));
+  }
+  updates.set(siblings[index]!.id, orders[neighborIndex]!);
+  updates.set(siblings[neighborIndex]!.id, orders[index]!);
+
+  await Promise.all(
+    [...updates.entries()].map(([catId, order]) => categoriesRepo.updateCategory(catId, { order })),
+  );
   await refreshCategories();
 }
 

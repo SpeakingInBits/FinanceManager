@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { categoryBreakdown, buildSankeyGraph } from './chart-utils';
 import type { Transaction } from '@/models/transaction';
 import type { Category } from '@/models/category';
+import type { Budget } from '@/models/budget';
 
 function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
   return {
@@ -10,6 +11,7 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     amount: 1000,
     date: 0,
     categoryId: null,
+    subcategoryId: null,
     budgetId: null,
     note: '',
     recurrence: null,
@@ -23,9 +25,22 @@ function makeCategory(overrides: Partial<Category> = {}): Category {
   return {
     id: 'c1',
     name: 'Food',
-    type: 'expense',
     parentId: null,
     color: '#ff0000',
+    createdAt: 0,
+    ...overrides,
+  };
+}
+
+function makeBudget(overrides: Partial<Budget> = {}): Budget {
+  return {
+    id: 'b1',
+    name: 'Vacation',
+    targetAmount: 10000,
+    periodType: 'monthly',
+    startDate: 0,
+    endDate: null,
+    categoryId: null,
     createdAt: 0,
     ...overrides,
   };
@@ -84,16 +99,16 @@ describe('categoryBreakdown', () => {
 });
 
 describe('buildSankeyGraph', () => {
-  it('builds income and expense nodes flowing through a Total node', () => {
+  it('builds income and expense nodes flowing through a Total node when no budget is linked', () => {
     const categories = [
-      makeCategory({ id: 'salary', name: 'Salary', type: 'income' }),
-      makeCategory({ id: 'rent', name: 'Rent', type: 'expense' }),
+      makeCategory({ id: 'salary', name: 'Salary' }),
+      makeCategory({ id: 'rent', name: 'Rent' }),
     ];
     const transactions = [
       makeTransaction({ type: 'income', categoryId: 'salary', amount: 5000 }),
       makeTransaction({ type: 'expense', categoryId: 'rent', amount: 2000 }),
     ];
-    const graph = buildSankeyGraph(transactions, categories);
+    const graph = buildSankeyGraph(transactions, categories, []);
     expect(graph.nodes.map((n) => n.name)).toEqual(['Salary', 'Total', 'Rent']);
     expect(graph.links).toEqual([
       { source: 0, target: 1, value: 5000 },
@@ -102,8 +117,32 @@ describe('buildSankeyGraph', () => {
   });
 
   it('omits zero-value links', () => {
-    const graph = buildSankeyGraph([], []);
+    const graph = buildSankeyGraph([], [], []);
     expect(graph.links).toEqual([]);
     expect(graph.nodes.map((n) => n.name)).toEqual(['Total']);
+  });
+
+  it('routes income and expense through a budget node when transactions are linked to it', () => {
+    const categories = [
+      makeCategory({ id: 'salary', name: 'Salary' }),
+      makeCategory({ id: 'flights', name: 'Flights' }),
+    ];
+    const budgets = [makeBudget({ id: 'vacation', name: 'Vacation' })];
+    const transactions = [
+      makeTransaction({ type: 'income', categoryId: 'salary', amount: 3000, budgetId: 'vacation' }),
+      makeTransaction({ type: 'expense', categoryId: 'flights', amount: 1000, budgetId: 'vacation' }),
+    ];
+    const graph = buildSankeyGraph(transactions, categories, budgets);
+    expect(graph.nodes.map((n) => n.name)).toEqual(['Salary', 'Vacation', 'Total', 'Flights']);
+    expect(graph.links).toEqual([
+      { source: 0, target: 1, value: 3000 },
+      { source: 1, target: 3, value: 1000 },
+    ]);
+  });
+
+  it('excludes budgets with no linked transactions from the node list', () => {
+    const budgets = [makeBudget({ id: 'unused', name: 'Unused' })];
+    const graph = buildSankeyGraph([], [], budgets);
+    expect(graph.nodes.map((n) => n.name)).not.toContain('Unused');
   });
 });

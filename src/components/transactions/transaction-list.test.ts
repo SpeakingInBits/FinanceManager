@@ -16,6 +16,7 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     amount: 1000,
     date: new Date(2026, 6, 10).getTime(),
     categoryId: null,
+    subcategoryId: null,
     budgetId: null,
     note: '',
     recurrence: null,
@@ -70,7 +71,7 @@ describe('transaction-list', () => {
   it('resolves the category name and color for each transaction', () => {
     const el = setup(
       [makeTransaction({ categoryId: 'food' })],
-      [{ id: 'food', name: 'Food', type: 'expense', parentId: null, color: '#abcdef', createdAt: 0 }],
+      [{ id: 'food', name: 'Food', parentId: null, color: '#abcdef', createdAt: 0 }],
     );
     const item = el.shadowRoot!.querySelector('transaction-list-item')!;
     expect(item.shadowRoot!.querySelector('.meta')!.textContent).toContain('Food');

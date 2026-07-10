@@ -14,6 +14,7 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     amount: 5000,
     date: new Date(2026, 6, 10).getTime(),
     categoryId: null,
+    subcategoryId: null,
     budgetId: null,
     note: 'Existing note',
     recurrence: null,

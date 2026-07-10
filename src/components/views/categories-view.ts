@@ -1,4 +1,5 @@
 import { appStore } from '@/state/app-store';
+import { moveCategoryAction } from '@/state/actions';
 import { AppEvents, type CategoryDeleteDetail } from '@/state/events';
 import type { ModalDialog } from '@/components/shared/modal-dialog';
 import type { CategoryForm } from '@/components/categories/category-form';
@@ -17,13 +18,7 @@ export class CategoriesView extends HTMLElement {
       </div>
 
       <section class="card">
-        <h2>Expense</h2>
-        <category-tree class="expense-tree"></category-tree>
-      </section>
-
-      <section class="card">
-        <h2>Income</h2>
-        <category-tree class="income-tree"></category-tree>
+        <category-tree></category-tree>
       </section>
 
       <modal-dialog heading="Add category" class="category-modal">
@@ -31,17 +26,11 @@ export class CategoriesView extends HTMLElement {
       </modal-dialog>
     `;
 
-    const expenseTree = this.querySelector('.expense-tree') as CategoryTree;
-    const incomeTree = this.querySelector('.income-tree') as CategoryTree;
-    expenseTree.type = 'expense';
-    incomeTree.type = 'income';
+    const tree = this.querySelector('category-tree') as CategoryTree;
     this.unsubscribe = appStore.subscribe((state) => {
-      expenseTree.categories = state.categories;
-      incomeTree.categories = state.categories;
+      tree.categories = state.categories;
     });
-    const state = appStore.getState();
-    expenseTree.categories = state.categories;
-    incomeTree.categories = state.categories;
+    tree.categories = appStore.getState().categories;
 
     this.querySelector('.add-btn')!.addEventListener('click', () => this.openForm(null));
 
@@ -49,6 +38,16 @@ export class CategoriesView extends HTMLElement {
       const { id } = (e as CustomEvent<{ id: string }>).detail;
       const category = appStore.getState().categories.find((c) => c.id === id) ?? null;
       this.openForm(category);
+    });
+
+    this.addEventListener('add-child', (e) => {
+      const { parentId } = (e as CustomEvent<{ parentId: string }>).detail;
+      this.openForm(null, parentId);
+    });
+
+    this.addEventListener('reorder', (e) => {
+      const { id, direction } = (e as CustomEvent<{ id: string; direction: 'up' | 'down' }>).detail;
+      void moveCategoryAction(id, direction);
     });
 
     this.addEventListener('delete', (e) => {
@@ -77,11 +76,14 @@ export class CategoriesView extends HTMLElement {
     this.unsubscribe?.();
   }
 
-  private openForm(category: Category | null): void {
+  private openForm(category: Category | null, presetParentId: string | null = null): void {
     const form = this.querySelector('category-form') as CategoryForm;
     form.category = category;
+    if (!category && presetParentId) {
+      form.presetParentId = presetParentId;
+    }
     const modal = this.querySelector('.category-modal') as ModalDialog;
-    modal.setAttribute('heading', category ? 'Edit category' : 'Add category');
+    modal.setAttribute('heading', category ? 'Edit category' : presetParentId ? 'Add subcategory' : 'Add category');
     modal.open();
   }
 

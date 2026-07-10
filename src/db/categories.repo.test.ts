@@ -11,7 +11,7 @@ import {
 import type { NewCategory } from '@/models/category';
 
 function newCategory(overrides: Partial<NewCategory> = {}): NewCategory {
-  return { name: 'Food', type: 'expense', parentId: null, color: '#ff0000', ...overrides };
+  return { name: 'Food', parentId: null, color: '#ff0000', ...overrides };
 }
 
 afterEach(async () => {
