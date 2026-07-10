@@ -34,7 +34,7 @@ export class BudgetProgressBar extends HTMLElement {
         <span>${formatCents(s.contributed)} contributed</span>
         <span>${formatCents(s.target)} goal</span>
       </div>
-      <div class="balance ${s.overdrawn ? 'over' : ''}">Balance: ${formatCents(s.balance)}</div>
+      <div class="balance ${s.overdrawn ? 'over' : ''}">Lifetime Balance: ${formatCents(s.balance)}</div>
     `;
   }
 }

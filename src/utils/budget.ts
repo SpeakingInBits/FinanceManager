@@ -3,7 +3,7 @@ import type { Budget } from '@/models/budget';
 import type { Transaction } from '@/models/transaction';
 
 export interface BudgetStats {
-  /** All-time income linked to this budget minus all-time expense linked to it. Can be negative. */
+  /** Lifetime balance: all-time income linked to this budget minus all-time expense linked to it. Can be negative. */
   balance: number;
   overdrawn: boolean;
   /** Income linked to this budget within the current contribution window. */
