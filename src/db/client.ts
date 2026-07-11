@@ -1,7 +1,7 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import { DB_NAME, DB_VERSION, type FinanceDB } from './schema';
 import type { BudgetPeriodType } from '@/models/budget';
-import type { TransactionType } from '@/models/transaction';
+import type { RecurrenceFrequency, TransactionType } from '@/models/transaction';
 
 let dbPromise: Promise<IDBPDatabase<FinanceDB>> | null = null;
 
@@ -17,7 +17,7 @@ interface LegacyBudgetV1 {
   createdAt: number;
 }
 
-/** Pre-migration (DB_VERSION < 3) shape of a transactions record: no subcategoryId. */
+/** Pre-migration (DB_VERSION < 3) shape of a transactions record: no subcategoryId, and recurrence may predate that field too. */
 interface LegacyTransactionV2 {
   id: string;
   type: TransactionType;
@@ -26,6 +26,7 @@ interface LegacyTransactionV2 {
   categoryId: string | null;
   budgetId: string | null;
   note: string;
+  recurrence?: RecurrenceFrequency | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -63,7 +64,7 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
 
           db.createObjectStore('settings', { keyPath: 'key' });
         }
-        // Future migrations: if (oldVersion < 6) { ... } — never edit the blocks above.
+        // Future migrations: if (oldVersion < 5) { ... } — never edit the blocks above.
 
         if (oldVersion < 2) {
           // Budget.amount was renamed to Budget.targetAmount; rename the field on existing records.
@@ -89,10 +90,16 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
           while (cursor) {
             const record = cursor.value as unknown as LegacyTransactionV2;
             const category = record.categoryId ? await categories.get(record.categoryId) : undefined;
+            const recurrence = record.recurrence ?? null;
             if (category?.parentId) {
-              await cursor.update({ ...record, categoryId: category.parentId, subcategoryId: category.id });
-            } else if (!('subcategoryId' in record)) {
-              await cursor.update({ ...record, subcategoryId: null });
+              await cursor.update({
+                ...record,
+                categoryId: category.parentId,
+                subcategoryId: category.id,
+                recurrence,
+              });
+            } else if (!('subcategoryId' in record) || !('recurrence' in record)) {
+              await cursor.update({ ...record, subcategoryId: null, recurrence });
             }
             cursor = await cursor.continue();
           }
@@ -110,10 +117,6 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
             }
             cursor = await cursor.continue();
           }
-        }
-
-        if (oldVersion < 5) {
-          db.createObjectStore('recurringTransactions', { keyPath: 'id' });
         }
       },
     });

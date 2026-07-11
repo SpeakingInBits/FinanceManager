@@ -1,12 +1,10 @@
 import css from './transaction-form.css?inline';
 import { adoptStyles } from '@/utils/adopt-styles';
 import { appStore } from '@/state/app-store';
-import {
-  AppEvents,
-  type RecurringTransactionSubmitDetail,
-  type TransactionSubmitDetail,
-} from '@/state/events';
-import { millisToDateInput, dateInputToMillis, monthStart } from '@/utils/date';
+import { AppEvents, type TransactionSubmitDetail } from '@/state/events';
+import { millisToDateInput, dateInputToMillis } from '@/utils/date';
+import { monthlyEquivalentAmount } from '@/utils/recurrence';
+import { formatCents } from '@/utils/currency';
 import type { Transaction, TransactionType } from '@/models/transaction';
 
 export class TransactionForm extends HTMLElement {
@@ -14,6 +12,10 @@ export class TransactionForm extends HTMLElement {
   private editing: Transaction | null = null;
   private type: TransactionType = 'expense';
   private categoryId: string | null = null;
+  private recurrence: Transaction['recurrence'] = null;
+  private amountCents = 0;
+  private note = '';
+  private dateValue = '';
 
   constructor() {
     super();
@@ -25,6 +27,10 @@ export class TransactionForm extends HTMLElement {
     this.editing = value;
     this.type = value?.type ?? 'expense';
     this.categoryId = value?.categoryId ?? null;
+    this.recurrence = value?.recurrence ?? null;
+    this.amountCents = value?.amount ?? 0;
+    this.note = value?.note ?? '';
+    this.dateValue = millisToDateInput(value?.date ?? Date.now());
     this.render();
   }
 
@@ -54,13 +60,27 @@ export class TransactionForm extends HTMLElement {
 
         <div class="field">
           <label for="amount">Amount</label>
-          <amount-input id="amount" value="${t?.amount ?? 0}"></amount-input>
+          <amount-input id="amount" value="${this.amountCents}"></amount-input>
+          ${
+            this.recurrence === 'yearly'
+              ? `<p class="hint">= ${formatCents(monthlyEquivalentAmount(this.amountCents, 'yearly'))}/month</p>`
+              : ''
+          }
+        </div>
+
+        <div class="field">
+          <label for="recurrence">Repeats</label>
+          <select id="recurrence">
+            <option value="" ${this.recurrence === null ? 'selected' : ''}>Never (one-off)</option>
+            <option value="monthly" ${this.recurrence === 'monthly' ? 'selected' : ''}>Monthly</option>
+            <option value="yearly" ${this.recurrence === 'yearly' ? 'selected' : ''}>Yearly</option>
+          </select>
         </div>
 
         <div class="row">
           <div class="field">
-            <label for="date">Date</label>
-            <input type="date" id="date" value="${millisToDateInput(t?.date ?? Date.now())}" required />
+            <label for="date">${this.recurrence ? 'Start date' : 'Date'}</label>
+            <input type="date" id="date" value="${this.dateValue}" required />
           </div>
           <div class="field">
             <label for="category">Category</label>
@@ -109,17 +129,8 @@ export class TransactionForm extends HTMLElement {
 
         <div class="field">
           <label for="note">Note</label>
-          <textarea id="note">${t?.note ?? ''}</textarea>
+          <textarea id="note">${this.note}</textarea>
         </div>
-
-        ${
-          !t
-            ? `
-        <div class="field checkbox-field">
-          <label><input type="checkbox" id="repeat" /> Repeat monthly</label>
-        </div>`
-            : ''
-        }
 
         <div class="form-actions">
           <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
@@ -140,6 +151,28 @@ export class TransactionForm extends HTMLElement {
       this.render();
     });
 
+    const recurrenceEl = root.querySelector<HTMLSelectElement>('#recurrence')!;
+    recurrenceEl.addEventListener('change', () => {
+      this.recurrence = (recurrenceEl.value || null) as Transaction['recurrence'];
+      this.render();
+    });
+
+    const amountEl = root.querySelector<HTMLElement & { valueCents: number }>('#amount')!;
+    amountEl.addEventListener('input', () => {
+      this.amountCents = amountEl.valueCents;
+      if (this.recurrence !== 'yearly') return;
+      const hint = root.querySelector('.hint');
+      if (hint) hint.textContent = `= ${formatCents(monthlyEquivalentAmount(amountEl.valueCents, 'yearly'))}/month`;
+    });
+
+    root.querySelector<HTMLInputElement>('#date')!.addEventListener('input', (e) => {
+      this.dateValue = (e.target as HTMLInputElement).value;
+    });
+
+    root.querySelector<HTMLTextAreaElement>('#note')!.addEventListener('input', (e) => {
+      this.note = (e.target as HTMLTextAreaElement).value;
+    });
+
     root.querySelector('.cancel-btn')!.addEventListener('click', () => {
       this.dispatchEvent(new CustomEvent('form-cancel', { bubbles: true, composed: true }));
     });
@@ -152,51 +185,26 @@ export class TransactionForm extends HTMLElement {
       const subcategoryEl = root.querySelector<HTMLSelectElement>('#subcategory');
       const budgetEl = root.querySelector<HTMLSelectElement>('#budget')!;
       const noteEl = root.querySelector<HTMLTextAreaElement>('#note')!;
-      const repeatEl = root.querySelector<HTMLInputElement>('#repeat');
-      const pickedDate = dateInputToMillis(dateEl.value);
 
-      if (repeatEl?.checked) {
-        this.dispatchEvent(
-          new CustomEvent<RecurringTransactionSubmitDetail>(AppEvents.RecurringTransactionSubmit, {
-            detail: {
-              input: {
-                type: this.type,
-                amount: amountEl.valueCents,
-                categoryId: categoryEl.value || null,
-                subcategoryId: subcategoryEl?.value || null,
-                budgetId: budgetEl.value || null,
-                note: noteEl.value.trim(),
-                dayOfMonth: new Date(pickedDate).getDate(),
-                startDate: monthStart(pickedDate),
-                endDate: null,
-                lastGeneratedThrough: null,
-                replacesId: null,
-              },
+      this.dispatchEvent(
+        new CustomEvent<TransactionSubmitDetail>(AppEvents.TransactionSubmit, {
+          detail: {
+            id: t?.id,
+            input: {
+              type: this.type,
+              amount: amountEl.valueCents,
+              date: dateInputToMillis(dateEl.value),
+              categoryId: categoryEl.value || null,
+              subcategoryId: subcategoryEl?.value || null,
+              budgetId: budgetEl.value || null,
+              note: noteEl.value.trim(),
+              recurrence: this.recurrence,
             },
-            bubbles: true,
-            composed: true,
-          }),
-        );
-      } else {
-        this.dispatchEvent(
-          new CustomEvent<TransactionSubmitDetail>(AppEvents.TransactionSubmit, {
-            detail: {
-              id: t?.id,
-              input: {
-                type: this.type,
-                amount: amountEl.valueCents,
-                date: pickedDate,
-                categoryId: categoryEl.value || null,
-                subcategoryId: subcategoryEl?.value || null,
-                budgetId: budgetEl.value || null,
-                note: noteEl.value.trim(),
-              },
-            },
-            bubbles: true,
-            composed: true,
-          }),
-        );
-      }
+          },
+          bubbles: true,
+          composed: true,
+        }),
+      );
       this.dispatchEvent(new CustomEvent('form-done', { bubbles: true, composed: true }));
     });
   }

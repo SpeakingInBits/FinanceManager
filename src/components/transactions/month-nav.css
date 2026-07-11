@@ -1,0 +1,33 @@
+:host {
+  display: block;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.label {
+  font-weight: 600;
+}
+
+button {
+  width: var(--tap-target-min);
+  height: var(--tap-target-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+}
+
+button:disabled {
+  color: var(--color-text-muted);
+  opacity: 0.4;
+}
+
+.prev app-icon {
+  transform: rotate(180deg);
+}

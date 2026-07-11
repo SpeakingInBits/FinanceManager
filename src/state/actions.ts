@@ -2,32 +2,20 @@ import { appStore } from './app-store';
 import * as transactionsRepo from '@/db/transactions.repo';
 import * as categoriesRepo from '@/db/categories.repo';
 import * as budgetsRepo from '@/db/budgets.repo';
-import * as recurringRepo from '@/db/recurring-transactions.repo';
 import { setSetting } from '@/db/settings.repo';
 import { sortCategories } from '@/utils/category';
-import { generateForRules } from '@/utils/recurring';
-import { addMonths, monthStart } from '@/utils/date';
 import type { NewTransaction } from '@/models/transaction';
 import type { NewCategory } from '@/models/category';
 import type { NewBudget } from '@/models/budget';
-import type { NewRecurringTransaction, RecurringTransaction } from '@/models/recurring-transaction';
 import type { ThemeMode } from '@/models/settings';
 
 export async function loadAllData(): Promise<void> {
-  const [transactions, categories, budgets, recurringTransactions] = await Promise.all([
+  const [transactions, categories, budgets] = await Promise.all([
     transactionsRepo.getAllTransactions(),
     categoriesRepo.getAllCategories(),
     budgetsRepo.getAllBudgets(),
-    recurringRepo.getAllRecurringTransactions(),
   ]);
-  const changed = await generateDueRecurring(recurringTransactions);
-  appStore.setState({
-    transactions: changed ? await transactionsRepo.getAllTransactions() : transactions,
-    categories,
-    budgets,
-    recurringTransactions: changed ? await recurringRepo.getAllRecurringTransactions() : recurringTransactions,
-    loaded: true,
-  });
+  appStore.setState({ transactions, categories, budgets, loaded: true });
 }
 
 async function refreshTransactions(): Promise<void> {
@@ -40,23 +28,6 @@ async function refreshCategories(): Promise<void> {
 
 async function refreshBudgets(): Promise<void> {
   appStore.setState({ budgets: await budgetsRepo.getAllBudgets() });
-}
-
-async function refreshRecurring(): Promise<void> {
-  appStore.setState({ recurringTransactions: await recurringRepo.getAllRecurringTransactions() });
-}
-
-/** Generates any transactions due for the given rules and persists the results. Returns whether anything changed. */
-async function generateDueRecurring(rules: RecurringTransaction[]): Promise<boolean> {
-  const { newTransactions, ruleUpdates } = generateForRules(rules, Date.now());
-  if (newTransactions.length === 0 && ruleUpdates.length === 0) return false;
-  await Promise.all([
-    ...newTransactions.map((t) => transactionsRepo.addTransaction(t)),
-    ...ruleUpdates.map((u) =>
-      recurringRepo.updateRecurringTransaction(u.id, { lastGeneratedThrough: u.lastGeneratedThrough }),
-    ),
-  ]);
-  return true;
 }
 
 export async function addTransactionAction(input: NewTransaction): Promise<void> {
@@ -133,66 +104,8 @@ export async function deleteBudgetAction(id: string): Promise<void> {
   await refreshBudgets();
 }
 
-export async function addRecurringTransactionAction(input: NewRecurringTransaction): Promise<void> {
-  const rule = await recurringRepo.addRecurringTransaction(input);
-  await generateDueRecurring([rule]);
-  await refreshRecurring();
-  await refreshTransactions();
-}
-
-export async function updateRecurringTransactionAction(
-  id: string,
-  input: NewRecurringTransaction,
-): Promise<void> {
-  const existing = await recurringRepo.getRecurringTransaction(id);
-  if (!existing) throw new Error(`Recurring transaction not found: ${id}`);
-
-  // Catch the OLD rule up under its own terms first, so the edited terms can never
-  // retroactively backfill months that should have used the pre-edit amount/fields.
-  await generateDueRecurring([existing]);
-  const current = await recurringRepo.getRecurringTransaction(id);
-  if (!current) throw new Error(`Recurring transaction not found: ${id}`);
-
-  if (current.lastGeneratedThrough == null) {
-    // Nothing has ever been generated for this rule — a plain in-place edit, nothing to preserve.
-    await recurringRepo.updateRecurringTransaction(id, input);
-  } else {
-    const effectiveMonth = addMonths(monthStart(current.lastGeneratedThrough), 1);
-    // Patch ONLY endDate — never spread the new fields onto the old rule, or its history would
-    // be silently rewritten.
-    await recurringRepo.updateRecurringTransaction(id, { endDate: effectiveMonth });
-    const newRule = await recurringRepo.addRecurringTransaction({
-      ...input,
-      startDate: effectiveMonth,
-      endDate: null,
-      lastGeneratedThrough: null,
-      replacesId: id,
-    });
-    await generateDueRecurring([newRule]);
-  }
-  await refreshRecurring();
-  await refreshTransactions();
-}
-
-export async function stopRecurringTransactionAction(id: string): Promise<void> {
-  const existing = await recurringRepo.getRecurringTransaction(id);
-  if (!existing) throw new Error(`Recurring transaction not found: ${id}`);
-
-  await generateDueRecurring([existing]);
-  const current = await recurringRepo.getRecurringTransaction(id);
-  if (!current) throw new Error(`Recurring transaction not found: ${id}`);
-
-  const endDate =
-    current.lastGeneratedThrough != null
-      ? addMonths(monthStart(current.lastGeneratedThrough), 1)
-      : current.startDate;
-  await recurringRepo.updateRecurringTransaction(id, { endDate });
-  await refreshRecurring();
-}
-
-export async function deleteRecurringTransactionAction(id: string): Promise<void> {
-  await recurringRepo.deleteRecurringTransaction(id);
-  await refreshRecurring();
+export function setSelectedMonthAction(millis: number): void {
+  appStore.setState({ selectedMonth: millis });
 }
 
 export async function setThemeModeAction(mode: ThemeMode): Promise<void> {

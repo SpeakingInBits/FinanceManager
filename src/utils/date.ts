@@ -30,25 +30,19 @@ export function monthBounds(millis: number): [number, number] {
   return [start, end];
 }
 
-/** Epoch millis for the 1st of the month containing `millis`. */
-export function monthStart(millis: number): number {
-  return monthBounds(millis)[0];
+/** Returns epoch millis for the first day of the month containing `millis`. */
+export function startOfMonth(millis: number): number {
+  const d = new Date(millis);
+  return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
 }
 
-/** Epoch millis for the 1st of the month `n` months after the month containing `monthMillis`. */
-export function addMonths(monthMillis: number, n: number): number {
-  const d = new Date(monthMillis);
-  return new Date(d.getFullYear(), d.getMonth() + n, 1).getTime();
+/** Returns the start-of-month `delta` months away from the month containing `millis`. */
+export function shiftMonth(millis: number, delta: number): number {
+  const d = new Date(millis);
+  return new Date(d.getFullYear(), d.getMonth() + delta, 1).getTime();
 }
 
-/** Number of days in the month containing `monthMillis`. */
-export function daysInMonth(monthMillis: number): number {
-  const d = new Date(monthMillis);
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-}
-
-/** Epoch millis for `day` within the month containing `monthMillis`, clamped to that month's length. */
-export function dayInMonth(monthMillis: number, day: number): number {
-  const d = new Date(monthMillis);
-  return new Date(d.getFullYear(), d.getMonth(), Math.min(day, daysInMonth(monthMillis))).getTime();
+/** Formats a month as e.g. "July 2026". */
+export function formatMonthYear(millis: number): string {
+  return new Date(millis).toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
 }

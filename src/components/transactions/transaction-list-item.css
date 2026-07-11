@@ -29,12 +29,6 @@
   white-space: nowrap;
 }
 
-.recurring-badge {
-  font-size: 0.85em;
-  color: var(--color-text-muted);
-  vertical-align: middle;
-}
-
 .info .meta {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);

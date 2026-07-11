@@ -6,25 +6,18 @@ import {
   type BudgetSubmitDetail,
   type CategoryDeleteDetail,
   type CategorySubmitDetail,
-  type RecurringTransactionDeleteDetail,
-  type RecurringTransactionStopDetail,
-  type RecurringTransactionSubmitDetail,
   type TransactionDeleteDetail,
   type TransactionSubmitDetail,
 } from '@/state/events';
 import {
   addBudgetAction,
   addCategoryAction,
-  addRecurringTransactionAction,
   addTransactionAction,
   deleteBudgetAction,
   deleteCategoryAction,
-  deleteRecurringTransactionAction,
   deleteTransactionAction,
-  stopRecurringTransactionAction,
   updateBudgetAction,
   updateCategoryAction,
-  updateRecurringTransactionAction,
   updateTransactionAction,
 } from '@/state/actions';
 
@@ -70,18 +63,6 @@ export class AppShell extends HTMLElement {
     this.addEventListener(AppEvents.BudgetDelete, (e) => {
       const { id } = (e as CustomEvent<BudgetDeleteDetail>).detail;
       void deleteBudgetAction(id);
-    });
-    this.addEventListener(AppEvents.RecurringTransactionSubmit, (e) => {
-      const { id, input } = (e as CustomEvent<RecurringTransactionSubmitDetail>).detail;
-      void (id ? updateRecurringTransactionAction(id, input) : addRecurringTransactionAction(input));
-    });
-    this.addEventListener(AppEvents.RecurringTransactionStop, (e) => {
-      const { id } = (e as CustomEvent<RecurringTransactionStopDetail>).detail;
-      void stopRecurringTransactionAction(id);
-    });
-    this.addEventListener(AppEvents.RecurringTransactionDelete, (e) => {
-      const { id } = (e as CustomEvent<RecurringTransactionDeleteDetail>).detail;
-      void deleteRecurringTransactionAction(id);
     });
   }
 

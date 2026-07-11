@@ -9,6 +9,7 @@ export class TransactionsView extends HTMLElement {
         <h1>Transactions</h1>
         <button type="button" class="btn add-btn"><app-icon name="plus"></app-icon> Add</button>
       </div>
+      <month-nav></month-nav>
       <transaction-list></transaction-list>
       <transaction-modal></transaction-modal>
     `;

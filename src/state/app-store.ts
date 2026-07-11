@@ -1,8 +1,8 @@
 import { Store } from './store';
+import { startOfMonth } from '@/utils/date';
 import type { Transaction } from '@/models/transaction';
 import type { Category } from '@/models/category';
 import type { Budget } from '@/models/budget';
-import type { RecurringTransaction } from '@/models/recurring-transaction';
 import type { ThemeMode } from '@/models/settings';
 
 export interface AppState {
@@ -13,7 +13,8 @@ export interface AppState {
   transactions: Transaction[];
   categories: Category[];
   budgets: Budget[];
-  recurringTransactions: RecurringTransaction[];
+  /** Epoch millis for the first day of the month currently being viewed (transactions/dashboard). */
+  selectedMonth: number;
 }
 
 function initialTheme(): { theme: 'light' | 'dark'; themeMode: ThemeMode } {
@@ -29,5 +30,5 @@ export const appStore = new Store<AppState>({
   transactions: [],
   categories: [],
   budgets: [],
-  recurringTransactions: [],
+  selectedMonth: startOfMonth(Date.now()),
 });
