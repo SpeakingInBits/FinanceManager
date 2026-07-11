@@ -14,3 +14,13 @@ if (typeof ElementInternals !== 'undefined' && !('setFormValue' in ElementIntern
     },
   });
 }
+
+// jsdom doesn't implement ResizeObserver at all — stub a no-op so chart components
+// (which observe their svg's size to size-and-render) can construct under test.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  };
+}

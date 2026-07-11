@@ -26,6 +26,21 @@ describe('amount-input', () => {
     expect(el.valueCents).toBe(0);
   });
 
+  it('leaves the field empty (showing the placeholder) for a zero value attribute', () => {
+    const el = mount(0);
+    const input = el.shadowRoot!.querySelector('input')!;
+    expect(input.value).toBe('');
+    expect(input.placeholder).toBe('0.00');
+  });
+
+  it('clears back to empty when valueCents is programmatically set to 0', () => {
+    const el = mount();
+    el.valueCents = 999;
+    el.valueCents = 0;
+    const input = el.shadowRoot!.querySelector('input')!;
+    expect(input.value).toBe('');
+  });
+
   it('parses cents back out of typed input', () => {
     const el = mount();
     const input = el.shadowRoot!.querySelector('input')!;

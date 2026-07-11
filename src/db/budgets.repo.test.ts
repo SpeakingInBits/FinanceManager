@@ -12,6 +12,7 @@ function newBudget(overrides: Partial<NewBudget> = {}): NewBudget {
     startDate: new Date(2026, 0, 1).getTime(),
     endDate: null,
     categoryId: null,
+    subcategoryId: null,
     ...overrides,
   };
 }

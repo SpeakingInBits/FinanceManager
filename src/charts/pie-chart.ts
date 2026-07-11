@@ -23,6 +23,7 @@ export class PieChart extends ChartBase {
         .attr('text-anchor', 'middle')
         .attr('fill', 'var(--color-text-muted)')
         .text('No data yet');
+      this.setLegend([]);
       return;
     }
 
@@ -39,6 +40,13 @@ export class PieChart extends ChartBase {
       .outerRadius(radius);
 
     const total = d3.sum(this._data, (d) => d.total);
+
+    this.setLegend(
+      this._data.map((d) => {
+        const pct = total > 0 ? Math.round((d.total / total) * 100) : 0;
+        return { label: `${d.categoryName} — ${formatCents(d.total)} (${pct}%)`, color: d.color };
+      }),
+    );
 
     g.selectAll('path')
       .data(pie(this._data))

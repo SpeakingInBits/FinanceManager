@@ -12,6 +12,8 @@ export interface Budget {
   endDate: number | null;
   /** null = general budget not tied to one category. */
   categoryId: string | null;
+  /** null = not narrowed to a subcategory; must be a child of categoryId when set. */
+  subcategoryId: string | null;
   createdAt: number;
 }
 
