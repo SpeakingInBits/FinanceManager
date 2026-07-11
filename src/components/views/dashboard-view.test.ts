@@ -1,8 +1,17 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import '@/components/shared/icon';
+import '@/components/shared/empty-state';
+import '@/components/shared/modal-dialog';
+import '@/components/shared/amount-input';
 import '@/components/transactions/month-nav';
+import '@/components/budgets/budget-progress-bar';
+import '@/components/budgets/budget-card';
+import '@/components/budgets/budget-list';
+import '@/components/budgets/budget-form';
 import '@/charts/pie-chart';
 import './dashboard-view';
 import { appStore } from '@/state/app-store';
+import { AppEvents } from '@/state/events';
 import { startOfMonth } from '@/utils/date';
 import type { Transaction } from '@/models/transaction';
 import type { Budget } from '@/models/budget';
@@ -83,46 +92,6 @@ describe('dashboard-view stat tiles', () => {
     expect(stat(el, 'income-stat')).toBe('$0.00');
   });
 
-  it('computes the budgets tile as lifetime income minus expense across all budgets', () => {
-    appStore.setState({
-      budgets: [makeBudget({ id: 'b1' })],
-      transactions: [
-        makeTransaction({ id: 'a', type: 'income', amount: 20000, budgetId: 'b1' }),
-        makeTransaction({ id: 'b', type: 'expense', amount: 5000, budgetId: 'b1' }),
-      ],
-    });
-    const el = mount();
-    expect(stat(el, 'budgets-stat')).toBe('$150.00');
-  });
-
-  it('sums the budgets tile across multiple budgets', () => {
-    appStore.setState({
-      budgets: [makeBudget({ id: 'b1' }), makeBudget({ id: 'b2', name: 'Emergency Fund' })],
-      transactions: [
-        makeTransaction({ id: 'a', type: 'income', amount: 10000, budgetId: 'b1' }),
-        makeTransaction({ id: 'b', type: 'income', amount: 30000, budgetId: 'b2' }),
-      ],
-    });
-    const el = mount();
-    expect(stat(el, 'budgets-stat')).toBe('$400.00');
-  });
-
-  it('counts a budget contribution from any month toward the lifetime budgets total', () => {
-    appStore.setState({
-      budgets: [makeBudget({ id: 'b1' })],
-      transactions: [
-        makeTransaction({
-          type: 'income',
-          amount: 20000,
-          budgetId: 'b1',
-          date: new Date(2020, 0, 1).getTime(),
-        }),
-      ],
-    });
-    const el = mount();
-    expect(stat(el, 'budgets-stat')).toBe('$200.00');
-  });
-
   it('does not let a budget contribution inflate the regular income tile', () => {
     appStore.setState({
       budgets: [makeBudget({ id: 'b1' })],
@@ -139,5 +108,63 @@ describe('dashboard-view stat tiles', () => {
     });
     const el = mount();
     expect(stat(el, 'expense-stat')).toBe('$0.00');
+  });
+});
+
+describe('dashboard-view budgets section', () => {
+  it('shows an empty state when there are no budgets', () => {
+    const el = mount();
+    const list = el.querySelector('budget-list')!;
+    expect(list.shadowRoot!.querySelector('empty-state')).toBeTruthy();
+  });
+
+  it('renders one budget card per budget, not a single combined figure', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1', name: 'Vacation Fund' }), makeBudget({ id: 'b2', name: 'Emergency Fund' })],
+    });
+    const el = mount();
+    const cards = el.querySelector('budget-list')!.shadowRoot!.querySelectorAll('budget-card');
+    expect(cards).toHaveLength(2);
+    const names = [...cards].map((c) => c.shadowRoot!.querySelector('.name')!.textContent);
+    expect(names).toEqual(['Vacation Fund', 'Emergency Fund']);
+  });
+
+  it('reflects each budget\'s own lifetime balance on its card', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ type: 'income', amount: 20000, budgetId: 'b1', date: new Date(2020, 0, 1).getTime() }),
+        makeTransaction({ type: 'expense', amount: 5000, budgetId: 'b1' }),
+      ],
+    });
+    const el = mount();
+    const card = el.querySelector('budget-list')!.shadowRoot!.querySelector('budget-card')!;
+    const bar = card.shadowRoot!.querySelector('budget-progress-bar')!;
+    expect(bar.shadowRoot!.textContent).toContain('$150.00');
+  });
+
+  it('opens the edit modal with the budget prefilled when a card\'s edit button is clicked', () => {
+    appStore.setState({ budgets: [makeBudget({ id: 'b1', name: 'Vacation Fund' })] });
+    const el = mount();
+    const card = el.querySelector('budget-list')!.shadowRoot!.querySelector('budget-card')!;
+    (card.shadowRoot!.querySelector('.edit-btn') as HTMLButtonElement).click();
+    const dialog = el.querySelector('.budget-modal dialog') as HTMLDialogElement;
+    expect(dialog.open).toBe(true);
+    const form = el.querySelector('budget-form')!;
+    expect(form.shadowRoot!.querySelector<HTMLInputElement>('#name')!.value).toBe('Vacation Fund');
+  });
+
+  it('deletes a budget after confirmation when a card\'s delete button is clicked', () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    appStore.setState({ budgets: [makeBudget({ id: 'b1' })] });
+    const el = mount();
+    let deletedId: string | undefined;
+    el.addEventListener(AppEvents.BudgetDelete, (e) => {
+      deletedId = (e as CustomEvent<{ id: string }>).detail.id;
+    });
+    const card = el.querySelector('budget-list')!.shadowRoot!.querySelector('budget-card')!;
+    (card.shadowRoot!.querySelector('.delete-btn') as HTMLButtonElement).click();
+    expect(deletedId).toBe('b1');
+    vi.restoreAllMocks();
   });
 });

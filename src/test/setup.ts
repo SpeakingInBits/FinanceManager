@@ -24,3 +24,17 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
     disconnect(): void {}
   };
 }
+
+// jsdom has an HTMLDialogElement but doesn't implement showModal()/close() — polyfill them
+// against the `open` attribute so components using <dialog> (e.g. modal-dialog) work under test.
+if (typeof HTMLDialogElement !== 'undefined' && !('showModal' in HTMLDialogElement.prototype)) {
+  Object.assign(HTMLDialogElement.prototype, {
+    showModal(this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    },
+    close(this: HTMLDialogElement) {
+      this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
+    },
+  });
+}
