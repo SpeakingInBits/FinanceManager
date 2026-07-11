@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { categoryBreakdown, buildSankeyGraph } from './chart-utils';
+import { categoryBreakdown, categoryBreakdownBySubcategory, shadeForIndex, buildSankeyGraph } from './chart-utils';
 import type { Transaction } from '@/models/transaction';
 import type { Category } from '@/models/category';
 import type { Budget } from '@/models/budget';
@@ -145,5 +145,145 @@ describe('buildSankeyGraph', () => {
     const budgets = [makeBudget({ id: 'unused', name: 'Unused' })];
     const graph = buildSankeyGraph([], [], budgets);
     expect(graph.nodes.map((n) => n.name)).not.toContain('Unused');
+  });
+
+  it('flags only budget nodes as isBudget, so they can be rendered distinctly', () => {
+    const categories = [
+      makeCategory({ id: 'salary', name: 'Salary' }),
+      makeCategory({ id: 'flights', name: 'Flights' }),
+    ];
+    const budgets = [makeBudget({ id: 'vacation', name: 'Vacation' })];
+    const transactions = [
+      makeTransaction({ type: 'income', categoryId: 'salary', amount: 3000, budgetId: 'vacation' }),
+      makeTransaction({ type: 'expense', categoryId: 'flights', amount: 1000, budgetId: 'vacation' }),
+    ];
+    const graph = buildSankeyGraph(transactions, categories, budgets);
+    const byName = new Map(graph.nodes.map((n) => [n.name, n.isBudget]));
+    expect(byName.get('Vacation')).toBe(true);
+    expect(byName.get('Salary')).toBeFalsy();
+    expect(byName.get('Total')).toBeFalsy();
+    expect(byName.get('Flights')).toBeFalsy();
+  });
+});
+
+describe('shadeForIndex', () => {
+  it('returns the base color unchanged when there is only one slice', () => {
+    expect(shadeForIndex('#2f6fed', 0, 1)).toBe('#2f6fed');
+  });
+
+  it('produces distinct colors for each of several slices', () => {
+    const colors = [0, 1, 2].map((i) => shadeForIndex('#2f6fed', i, 3));
+    expect(new Set(colors).size).toBe(3);
+  });
+
+  it('is deterministic for the same index/count', () => {
+    expect(shadeForIndex('#2f6fed', 1, 3)).toBe(shadeForIndex('#2f6fed', 1, 3));
+  });
+
+  it('produces a valid hex color', () => {
+    const color = shadeForIndex('#2f6fed', 2, 4);
+    expect(color).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+});
+
+describe('categoryBreakdownBySubcategory', () => {
+  it('returns a single unsplit slice for a category with no subcategory usage', () => {
+    const categories = [makeCategory({ id: 'food', name: 'Food', color: '#111' })];
+    const transactions = [
+      makeTransaction({ categoryId: 'food', amount: 1000 }),
+      makeTransaction({ categoryId: 'food', amount: 500 }),
+    ];
+    const result = categoryBreakdownBySubcategory(transactions, categories, 'expense');
+    expect(result).toHaveLength(1);
+    expect(result[0]!.total).toBe(1500);
+    expect(result[0]!.slices).toHaveLength(1);
+    expect(result[0]!.slices[0]).toMatchObject({ label: 'Food', total: 1500, color: '#111' });
+  });
+
+  it('splits a category into one slice per subcategory in use', () => {
+    const categories = [
+      makeCategory({ id: 'travel', name: 'Travel', color: '#2f6fed' }),
+      makeCategory({ id: 'flights', name: 'Flights', parentId: 'travel' }),
+      makeCategory({ id: 'hotels', name: 'Hotels', parentId: 'travel' }),
+    ];
+    const transactions = [
+      makeTransaction({ categoryId: 'travel', subcategoryId: 'flights', amount: 600 }),
+      makeTransaction({ categoryId: 'travel', subcategoryId: 'hotels', amount: 400 }),
+    ];
+    const result = categoryBreakdownBySubcategory(transactions, categories, 'expense');
+    expect(result).toHaveLength(1);
+    expect(result[0]!.total).toBe(1000);
+    const labels = result[0]!.slices.map((s) => s.label);
+    expect(labels.sort()).toEqual(['Flights', 'Hotels']);
+  });
+
+  it('buckets direct (no-subcategory) transactions as "Other" when siblings have real subcategories', () => {
+    const categories = [
+      makeCategory({ id: 'travel', name: 'Travel' }),
+      makeCategory({ id: 'flights', name: 'Flights', parentId: 'travel' }),
+    ];
+    const transactions = [
+      makeTransaction({ categoryId: 'travel', subcategoryId: 'flights', amount: 600 }),
+      makeTransaction({ categoryId: 'travel', subcategoryId: null, amount: 400 }),
+    ];
+    const result = categoryBreakdownBySubcategory(transactions, categories, 'expense');
+    const other = result[0]!.slices.find((s) => s.subcategoryId === null);
+    expect(other?.label).toBe('Other');
+    expect(other?.total).toBe(400);
+  });
+
+  it('gives sibling slices within a category distinct shades of the base color', () => {
+    const categories = [
+      makeCategory({ id: 'travel', name: 'Travel', color: '#2f6fed' }),
+      makeCategory({ id: 'flights', name: 'Flights', parentId: 'travel' }),
+      makeCategory({ id: 'hotels', name: 'Hotels', parentId: 'travel' }),
+    ];
+    const transactions = [
+      makeTransaction({ categoryId: 'travel', subcategoryId: 'flights', amount: 600 }),
+      makeTransaction({ categoryId: 'travel', subcategoryId: 'hotels', amount: 400 }),
+    ];
+    const result = categoryBreakdownBySubcategory(transactions, categories, 'expense');
+    const colors = result[0]!.slices.map((s) => s.color);
+    expect(new Set(colors).size).toBe(colors.length);
+  });
+
+  it('sorts groups by total descending, and slices within a group by total descending', () => {
+    const categories = [
+      makeCategory({ id: 'travel', name: 'Travel' }),
+      makeCategory({ id: 'flights', name: 'Flights', parentId: 'travel' }),
+      makeCategory({ id: 'hotels', name: 'Hotels', parentId: 'travel' }),
+      makeCategory({ id: 'food', name: 'Food' }),
+    ];
+    const transactions = [
+      makeTransaction({ categoryId: 'food', amount: 100 }),
+      makeTransaction({ categoryId: 'travel', subcategoryId: 'hotels', amount: 200 }),
+      makeTransaction({ categoryId: 'travel', subcategoryId: 'flights', amount: 900 }),
+    ];
+    const result = categoryBreakdownBySubcategory(transactions, categories, 'expense');
+    expect(result.map((g) => g.categoryName)).toEqual(['Travel', 'Food']);
+    expect(result[0]!.slices.map((s) => s.label)).toEqual(['Flights', 'Hotels']);
+  });
+
+  it('groups uncategorized transactions together as their own unsplit slice', () => {
+    const transactions = [makeTransaction({ categoryId: null, amount: 300 })];
+    const result = categoryBreakdownBySubcategory(transactions, [], 'expense');
+    expect(result).toEqual([
+      {
+        categoryId: 'uncategorized',
+        categoryName: 'Uncategorized',
+        color: '#9aa0a6',
+        total: 300,
+        slices: [
+          {
+            key: 'uncategorized:none',
+            categoryId: 'uncategorized',
+            subcategoryId: null,
+            label: 'Uncategorized',
+            total: 300,
+            color: '#9aa0a6',
+          },
+        ],
+      },
+    ]);
   });
 });

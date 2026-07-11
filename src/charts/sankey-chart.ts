@@ -71,9 +71,16 @@ export class SankeyChart extends ChartBase {
       .attr('y', (d) => d.y0 ?? 0)
       .attr('width', (d) => (d.x1 ?? 0) - (d.x0 ?? 0))
       .attr('height', (d) => (d.y1 ?? 0) - (d.y0 ?? 0))
+      .attr('rx', (d) => (d.isBudget ? 4 : 0))
       .attr('fill', (d) => d.color)
+      // Budgets are a pass-through balance, not a plain income/expense category — mark their
+      // node with a dashed outline so that distinction reads even without hovering for the tooltip.
+      .attr('stroke', (d) => (d.isBudget ? 'var(--color-text)' : 'none'))
+      .attr('stroke-width', (d) => (d.isBudget ? 1.5 : 0))
+      .attr('stroke-dasharray', (d) => (d.isBudget ? '4,2' : null))
       .on('pointermove', (event: PointerEvent, d) => {
-        this.showTooltip(event.clientX, event.clientY, `<strong>${d.name}</strong>`);
+        const label = d.isBudget ? `${d.name} (budget)` : d.name;
+        this.showTooltip(event.clientX, event.clientY, `<strong>${label}</strong>`);
       })
       .on('pointerleave', () => this.hideTooltip());
 
@@ -85,7 +92,7 @@ export class SankeyChart extends ChartBase {
       .attr('text-anchor', (d) => ((d.x0 ?? 0) < width / 2 ? 'start' : 'end'))
       .attr('fill', 'var(--color-text)')
       .style('font-size', '12px')
-      .text((d) => d.name);
+      .text((d) => (d.isBudget ? `${d.name} (budget)` : d.name));
   }
 }
 
