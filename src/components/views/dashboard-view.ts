@@ -25,8 +25,12 @@ export class DashboardView extends HTMLElement {
           <div class="stat-value income-stat"></div>
         </div>
         <div class="card stat-tile">
-          <div class="stat-label">Expenses</div>
-          <div class="stat-value expense-stat"></div>
+          <div class="stat-label">Recurring expenses</div>
+          <div class="stat-value recurring-expense-stat"></div>
+        </div>
+        <div class="card stat-tile">
+          <div class="stat-label">One-time expenses</div>
+          <div class="stat-value onetime-expense-stat"></div>
         </div>
         <div class="card stat-tile">
           <div class="stat-label">Net</div>
@@ -98,10 +102,19 @@ export class DashboardView extends HTMLElement {
     const notBudgeted = inMonth.filter((t) => t.budgetId === null);
 
     const income = notBudgeted.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const expense = notBudgeted.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const expenses = notBudgeted.filter((t) => t.type === 'expense');
+    // A recurring transaction carries a non-null `recurrence`; a one-off has `recurrence: null`.
+    const recurringExpense = expenses
+      .filter((t) => t.recurrence !== null)
+      .reduce((s, t) => s + t.amount, 0);
+    const oneTimeExpense = expenses
+      .filter((t) => t.recurrence === null)
+      .reduce((s, t) => s + t.amount, 0);
+    const expense = recurringExpense + oneTimeExpense;
 
     this.querySelector('.income-stat')!.textContent = formatCents(income);
-    this.querySelector('.expense-stat')!.textContent = formatCents(expense);
+    this.querySelector('.recurring-expense-stat')!.textContent = formatCents(recurringExpense);
+    this.querySelector('.onetime-expense-stat')!.textContent = formatCents(oneTimeExpense);
     this.querySelector('.net-stat')!.textContent = formatCents(income - expense);
 
     const pie = this.querySelector('pie-chart') as PieChart;

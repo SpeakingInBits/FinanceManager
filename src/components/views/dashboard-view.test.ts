@@ -78,8 +78,33 @@ describe('dashboard-view stat tiles', () => {
     });
     const el = mount();
     expect(stat(el, 'income-stat')).toBe('$50.00');
-    expect(stat(el, 'expense-stat')).toBe('$20.00');
+    expect(stat(el, 'onetime-expense-stat')).toBe('$20.00');
     expect(stat(el, 'net-stat')).toBe('$30.00');
+  });
+
+  it('splits expenses into recurring and one-time tiles', () => {
+    appStore.setState({
+      transactions: [
+        makeTransaction({ id: 'a', type: 'expense', amount: 3000 }),
+        makeTransaction({ id: 'b', type: 'expense', amount: 1500, recurrence: 'monthly' }),
+        makeTransaction({ id: 'c', type: 'expense', amount: 1200, recurrence: 'yearly' }),
+      ],
+    });
+    const el = mount();
+    // yearly 1200 shows as its monthly-equivalent (100), plus the monthly 1500 => 1600 recurring.
+    expect(stat(el, 'recurring-expense-stat')).toBe('$16.00');
+    expect(stat(el, 'onetime-expense-stat')).toBe('$30.00');
+    // Net still nets out total expenses against income.
+    expect(stat(el, 'net-stat')).toBe('-$46.00');
+  });
+
+  it('shows $0.00 in the recurring tile when there are only one-off expenses', () => {
+    appStore.setState({
+      transactions: [makeTransaction({ type: 'expense', amount: 2000 })],
+    });
+    const el = mount();
+    expect(stat(el, 'recurring-expense-stat')).toBe('$0.00');
+    expect(stat(el, 'onetime-expense-stat')).toBe('$20.00');
   });
 
   it('excludes transactions from a different month', () => {
@@ -101,13 +126,17 @@ describe('dashboard-view stat tiles', () => {
     expect(stat(el, 'income-stat')).toBe('$0.00');
   });
 
-  it('does not let a budget withdrawal inflate the regular expenses tile', () => {
+  it('does not let a budget withdrawal inflate either expenses tile', () => {
     appStore.setState({
       budgets: [makeBudget({ id: 'b1' })],
-      transactions: [makeTransaction({ type: 'expense', amount: 15000, budgetId: 'b1' })],
+      transactions: [
+        makeTransaction({ type: 'expense', amount: 15000, budgetId: 'b1' }),
+        makeTransaction({ type: 'expense', amount: 9000, budgetId: 'b1', recurrence: 'monthly' }),
+      ],
     });
     const el = mount();
-    expect(stat(el, 'expense-stat')).toBe('$0.00');
+    expect(stat(el, 'onetime-expense-stat')).toBe('$0.00');
+    expect(stat(el, 'recurring-expense-stat')).toBe('$0.00');
   });
 });
 
