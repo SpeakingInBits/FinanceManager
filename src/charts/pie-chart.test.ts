@@ -155,3 +155,50 @@ describe('pie-chart legend', () => {
     expect(el.shadowRoot!.querySelectorAll('.legend-group')).toHaveLength(0);
   });
 });
+
+describe('pie-chart exploded slices', () => {
+  it('offsets every slice outward with a translate transform when there is more than one', async () => {
+    const el = mount();
+    el.data = [
+      group({
+        categoryName: 'Split',
+        slices: [
+          subSlice({ key: 'a', label: 'A', total: 100 }),
+          subSlice({ key: 'b', label: 'B', total: 100 }),
+        ],
+      }),
+    ];
+    await nextFrame();
+    const paths = [...el.shadowRoot!.querySelectorAll('path')];
+    expect(paths).toHaveLength(2);
+    for (const p of paths) {
+      expect(p.getAttribute('transform')).toMatch(/^translate\(/);
+    }
+  });
+
+  it('offsets slices in different directions so opposing slices do not share a transform', async () => {
+    const el = mount();
+    el.data = [
+      group({
+        categoryName: 'Split',
+        slices: [
+          subSlice({ key: 'a', label: 'A', total: 100 }),
+          subSlice({ key: 'b', label: 'B', total: 100 }),
+        ],
+      }),
+    ];
+    await nextFrame();
+    const transforms = [...el.shadowRoot!.querySelectorAll('path')].map((p) =>
+      p.getAttribute('transform'),
+    );
+    expect(transforms[0]).not.toBe(transforms[1]);
+  });
+
+  it('does not offset a single full-ring slice', async () => {
+    const el = mount();
+    el.data = [group({ slices: [subSlice({ key: 'only', label: 'Only', total: 100 })] })];
+    await nextFrame();
+    const path = el.shadowRoot!.querySelector('path')!;
+    expect(path.getAttribute('transform')).toBeNull();
+  });
+});

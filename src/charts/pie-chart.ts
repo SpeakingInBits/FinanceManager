@@ -29,14 +29,21 @@ export class PieChart extends ChartBase {
       return;
     }
 
-    const radius = Math.min(width, height) / 2 - 8;
+    // "Exploded" view: nudge each slice radially outward from the center so the boundaries
+    // between slices read clearly. Shrink the radius by the offset so the pushed-out slices
+    // still fit within the SVG bounds. Skip it for a single slice — there's nothing to separate
+    // from, and offsetting one full ring just looks off-center.
+    const baseRadius = Math.min(width, height) / 2 - 8;
+    const explode = slices.length > 1;
+    const explodeOffset = explode ? Math.min(10, baseRadius * 0.06) : 0;
+    const radius = baseRadius - explodeOffset;
     const g = svg.append('g').attr('transform', `translate(${width / 2}, ${height / 2})`);
 
     const pie = d3
       .pie<CategorySubSlice>()
       .value((d) => d.total)
       .sort(null)
-      .padAngle(0.015);
+      .padAngle(0.02);
     const arc = d3
       .arc<d3.PieArcDatum<CategorySubSlice>>()
       .innerRadius(radius * 0.55)
@@ -68,6 +75,13 @@ export class PieChart extends ChartBase {
       .data(pie(slices))
       .join('path')
       .attr('d', arc)
+      .attr('transform', (d) => {
+        if (!explode) return null;
+        const midAngle = (d.startAngle + d.endAngle) / 2;
+        const x = Math.sin(midAngle) * explodeOffset;
+        const y = -Math.cos(midAngle) * explodeOffset;
+        return `translate(${x.toFixed(2)}, ${y.toFixed(2)})`;
+      })
       .attr('fill', (d) => d.data.color)
       .attr('stroke', 'var(--color-surface)')
       .attr('stroke-width', 2)

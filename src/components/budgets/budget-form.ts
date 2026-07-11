@@ -76,8 +76,8 @@ export class BudgetForm extends HTMLElement {
             <input type="date" id="start" value="${this.startDate}" required />
           </div>
           <div class="field">
-            <label for="end">End date${this.periodType === 'monthly' ? ' (optional)' : ''}</label>
-            <input type="date" id="end" value="${this.endDate}" ${this.periodType === 'one-time' ? 'required' : ''} />
+            <label for="end">End date (optional)</label>
+            <input type="date" id="end" value="${this.endDate}" />
           </div>
         </div>
 

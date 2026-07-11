@@ -171,4 +171,24 @@ describe('budget-form', () => {
     expect(detail.input.categoryId).toBeNull();
     expect(detail.input.subcategoryId).toBeNull();
   });
+
+  it('leaves the end date optional for a one-time budget', () => {
+    const form = mount();
+    form.budget = null;
+    form.shadowRoot!.querySelector<HTMLButtonElement>('[data-period="one-time"]')!.click();
+    const endEl = form.shadowRoot!.querySelector<HTMLInputElement>('#end')!;
+    expect(endEl.required).toBe(false);
+  });
+
+  it('submits a one-time budget with a null end date when none is entered', () => {
+    const form = mount();
+    form.budget = null;
+    form.shadowRoot!.querySelector<HTMLButtonElement>('[data-period="one-time"]')!.click();
+    const nameEl = form.shadowRoot!.querySelector<HTMLInputElement>('#name')!;
+    nameEl.value = 'Emergency Fund';
+    nameEl.dispatchEvent(new Event('input', { bubbles: true }));
+    const detail = submit(form);
+    expect(detail.input.periodType).toBe('one-time');
+    expect(detail.input.endDate).toBeNull();
+  });
 });
