@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import './pie-chart';
 import type { PieChart } from './pie-chart';
-import type { CategorySlice } from './chart-utils';
+import type { CategoryGroupSlice, CategorySubSlice } from './chart-utils';
 
 function mount(): PieChart {
   document.body.innerHTML = '';
@@ -10,8 +10,27 @@ function mount(): PieChart {
   return el;
 }
 
-function slice(overrides: Partial<CategorySlice> = {}): CategorySlice {
-  return { categoryId: 'c1', categoryName: 'Food', total: 1000, color: '#ff0000', ...overrides };
+function subSlice(overrides: Partial<CategorySubSlice> = {}): CategorySubSlice {
+  return {
+    key: 'food:none',
+    categoryId: 'food',
+    subcategoryId: null,
+    label: 'Food',
+    total: 1000,
+    color: '#ff0000',
+    ...overrides,
+  };
+}
+
+function group(overrides: Partial<CategoryGroupSlice> = {}): CategoryGroupSlice {
+  const base: CategoryGroupSlice = {
+    categoryId: 'food',
+    categoryName: 'Food',
+    color: '#ff0000',
+    total: 1000,
+    slices: [subSlice()],
+  };
+  return { ...base, ...overrides };
 }
 
 /** Chart rendering is scheduled via requestAnimationFrame; flush one to let it run. */
@@ -24,46 +43,115 @@ beforeEach(() => {
 });
 
 describe('pie-chart legend', () => {
-  it('renders no legend items when there is no data', async () => {
+  it('renders no legend groups when there is no data', async () => {
     const el = mount();
     el.data = [];
     await nextFrame();
     expect(el.shadowRoot!.querySelector('.legend')!.children.length).toBe(0);
   });
 
-  it('renders one legend item per slice with its color and name', async () => {
+  it('renders one legend group per category, with no children when it has a single slice', async () => {
     const el = mount();
     el.data = [
-      slice({ categoryName: 'Food', color: '#ff0000' }),
-      slice({ categoryName: 'Rent', color: '#00ff00' }),
+      group({ categoryName: 'Food', color: '#ff0000', slices: [subSlice({ label: 'Food', total: 750 })] }),
+      group({
+        categoryId: 'rent',
+        categoryName: 'Rent',
+        color: '#00ff00',
+        total: 250,
+        slices: [subSlice({ key: 'rent:none', categoryId: 'rent', label: 'Rent', total: 250 })],
+      }),
     ];
     await nextFrame();
-    const items = el.shadowRoot!.querySelectorAll('.legend-item');
-    expect(items).toHaveLength(2);
-    expect(items[0]!.textContent).toContain('Food');
-    expect(items[1]!.textContent).toContain('Rent');
-    expect((items[0]!.querySelector('.legend-swatch') as HTMLElement).style.background).toBe(
-      'rgb(255, 0, 0)',
-    );
+    const groups = el.shadowRoot!.querySelectorAll('.legend-group');
+    expect(groups).toHaveLength(2);
+    expect(groups[0]!.querySelector('.legend-header')!.textContent).toContain('Food');
+    expect(groups[0]!.querySelector('.legend-children')).toBeNull();
+    expect(groups[1]!.querySelector('.legend-header')!.textContent).toContain('Rent');
   });
 
-  it('includes the amount and percent share in the legend label', async () => {
+  it('nests subcategory slices under the category header when a category has more than one', async () => {
     const el = mount();
-    el.data = [slice({ categoryName: 'Food', total: 750 }), slice({ categoryName: 'Rent', total: 250 })];
+    el.data = [
+      group({
+        categoryName: 'Travel',
+        color: '#2f6fed',
+        total: 1000,
+        slices: [
+          subSlice({ key: 'travel:flights', label: 'Flights', total: 600, color: '#2f6fed' }),
+          subSlice({ key: 'travel:hotels', label: 'Hotels', total: 400, color: '#5a8ff2' }),
+        ],
+      }),
+    ];
     await nextFrame();
-    const items = el.shadowRoot!.querySelectorAll('.legend-item');
-    expect(items[0]!.textContent).toContain('$7.50');
-    expect(items[0]!.textContent).toContain('75%');
-    expect(items[1]!.textContent).toContain('25%');
+    const header = el.shadowRoot!.querySelector('.legend-header')!;
+    expect(header.textContent).toContain('Travel');
+    const children = el.shadowRoot!.querySelectorAll('.legend-children .legend-item');
+    expect(children).toHaveLength(2);
+    expect(children[0]!.textContent).toContain('Flights');
+    expect(children[1]!.textContent).toContain('Hotels');
+  });
+
+  it('labels a direct (no-subcategory) bucket as Other when siblings have real subcategories', async () => {
+    const el = mount();
+    el.data = [
+      group({
+        categoryName: 'Travel',
+        slices: [
+          subSlice({ key: 'travel:flights', subcategoryId: 'flights', label: 'Flights', total: 600 }),
+          subSlice({ key: 'travel:none', subcategoryId: null, label: 'Other', total: 400 }),
+        ],
+      }),
+    ];
+    await nextFrame();
+    const children = [...el.shadowRoot!.querySelectorAll('.legend-children .legend-item')].map(
+      (c) => c.textContent,
+    );
+    expect(children.some((t) => t!.includes('Other'))).toBe(true);
+  });
+
+  it('includes the amount and percent share in the group and child labels', async () => {
+    const el = mount();
+    el.data = [
+      group({
+        categoryName: 'Travel',
+        total: 1000,
+        slices: [
+          subSlice({ key: 'travel:flights', label: 'Flights', total: 750 }),
+          subSlice({ key: 'travel:hotels', label: 'Hotels', total: 250 }),
+        ],
+      }),
+    ];
+    await nextFrame();
+    const header = el.shadowRoot!.querySelector('.legend-header')!;
+    expect(header.textContent).toContain('$10.00');
+    expect(header.textContent).toContain('100%');
+    const children = el.shadowRoot!.querySelectorAll('.legend-children .legend-item');
+    expect(children[0]!.textContent).toContain('$7.50');
+    expect(children[0]!.textContent).toContain('75%');
+    expect(children[1]!.textContent).toContain('25%');
+  });
+
+  it('renders one pie slice (path) per subcategory across all groups', async () => {
+    const el = mount();
+    el.data = [
+      group({
+        categoryName: 'Travel',
+        slices: [subSlice({ key: 'travel:a', label: 'A', total: 100 }), subSlice({ key: 'travel:b', label: 'B', total: 200 })],
+      }),
+      group({ categoryId: 'food', categoryName: 'Food', slices: [subSlice({ key: 'food:none', label: 'Food', total: 300 })] }),
+    ];
+    await nextFrame();
+    expect(el.shadowRoot!.querySelectorAll('path')).toHaveLength(3);
   });
 
   it('clears the legend when data is reset to empty', async () => {
     const el = mount();
-    el.data = [slice()];
+    el.data = [group()];
     await nextFrame();
-    expect(el.shadowRoot!.querySelectorAll('.legend-item')).toHaveLength(1);
+    expect(el.shadowRoot!.querySelectorAll('.legend-group')).toHaveLength(1);
     el.data = [];
     await nextFrame();
-    expect(el.shadowRoot!.querySelectorAll('.legend-item')).toHaveLength(0);
+    expect(el.shadowRoot!.querySelectorAll('.legend-group')).toHaveLength(0);
   });
 });

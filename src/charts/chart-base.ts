@@ -67,6 +67,27 @@ export abstract class ChartBase extends HTMLElement {
       .join('');
   }
 
+  /** Like setLegend, but each group can list child items (e.g. subcategories) nested beneath it. */
+  protected setGroupedLegend(
+    groups: { label: string; color: string; children?: { label: string; color: string }[] }[],
+  ): void {
+    this.legend.innerHTML = groups
+      .map((group) => {
+        const children = group.children ?? [];
+        const childrenHtml =
+          children.length > 0
+            ? `<div class="legend-children">${children
+                .map(
+                  (child) =>
+                    `<span class="legend-item"><span class="legend-swatch" style="background:${child.color}"></span>${child.label}</span>`,
+                )
+                .join('')}</div>`
+            : '';
+        return `<div class="legend-group"><div class="legend-header"><span class="legend-swatch" style="background:${group.color}"></span><span class="legend-name">${group.label}</span></div>${childrenHtml}</div>`;
+      })
+      .join('');
+  }
+
   protected showTooltip(x: number, y: number, html: string): void {
     this.tooltip.innerHTML = html;
     this.tooltip.style.left = `${x + 12}px`;

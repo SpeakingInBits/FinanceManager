@@ -2,7 +2,7 @@ import { appStore } from '@/state/app-store';
 import { formatCents } from '@/utils/currency';
 import { occurrencesForMonth } from '@/utils/recurrence';
 import { computeBudgetStats } from '@/utils/budget';
-import { categoryBreakdown } from '@/charts/chart-utils';
+import { categoryBreakdownBySubcategory } from '@/charts/chart-utils';
 import type { PieChart } from '@/charts/pie-chart';
 
 export class DashboardView extends HTMLElement {
@@ -77,7 +77,7 @@ export class DashboardView extends HTMLElement {
     this.querySelector('.budgets-stat')!.textContent = formatCents(budgetsTotal);
 
     const pie = this.querySelector('pie-chart') as PieChart;
-    pie.data = categoryBreakdown(notBudgeted, categories, 'expense');
+    pie.data = categoryBreakdownBySubcategory(notBudgeted, categories, 'expense');
   }
 }
 

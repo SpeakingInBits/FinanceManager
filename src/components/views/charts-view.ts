@@ -1,5 +1,5 @@
 import { appStore } from '@/state/app-store';
-import { buildSankeyGraph, categoryBreakdown } from '@/charts/chart-utils';
+import { buildSankeyGraph, categoryBreakdownBySubcategory } from '@/charts/chart-utils';
 import type { Transaction } from '@/models/transaction';
 import type { PieChart } from '@/charts/pie-chart';
 import type { SankeyChart } from '@/charts/sankey-chart';
@@ -57,7 +57,7 @@ export class ChartsView extends HTMLElement {
   private updateCharts(): void {
     const { transactions, categories, budgets } = appStore.getState();
     const pie = this.querySelector('pie-chart') as PieChart;
-    pie.data = categoryBreakdown(transactions, categories, this.pieType);
+    pie.data = categoryBreakdownBySubcategory(transactions, categories, this.pieType);
 
     const sankey = this.querySelector('sankey-chart') as SankeyChart;
     sankey.data = buildSankeyGraph(transactions, categories, budgets);
