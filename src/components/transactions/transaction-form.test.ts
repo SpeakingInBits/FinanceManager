@@ -138,6 +138,37 @@ describe('transaction-form', () => {
     expect(form.shadowRoot!.querySelector<HTMLInputElement>('#date')!.value).toBe('2026-03-15');
   });
 
+  it('hides the subcategory field when no top-level category is selected', () => {
+    appStore.setState({
+      categories: [
+        { id: 'travel', name: 'Travel', parentId: null, color: '#000', createdAt: 0 },
+        { id: 'flights', name: 'Flights', parentId: 'travel', color: '#000', createdAt: 0 },
+      ],
+    });
+    const form = mount();
+    form.transaction = null;
+    expect(form.shadowRoot!.querySelector('#subcategory')).toBeNull();
+  });
+
+  it('shows only the selected category\'s children in the subcategory field', () => {
+    appStore.setState({
+      categories: [
+        { id: 'travel', name: 'Travel', parentId: null, color: '#000', createdAt: 0 },
+        { id: 'flights', name: 'Flights', parentId: 'travel', color: '#000', createdAt: 0 },
+        { id: 'food', name: 'Food', parentId: null, color: '#000', createdAt: 0 },
+      ],
+    });
+    const form = mount();
+    form.transaction = null;
+    const categorySelect = form.shadowRoot!.querySelector<HTMLSelectElement>('#category')!;
+    categorySelect.value = 'travel';
+    categorySelect.dispatchEvent(new Event('change', { bubbles: true }));
+    const subcategoryOptions = [
+      ...form.shadowRoot!.querySelectorAll<HTMLOptionElement>('#subcategory option'),
+    ].map((o) => o.textContent);
+    expect(subcategoryOptions).toEqual(['None', 'Flights']);
+  });
+
   it('does not reset in-progress input when the app store updates for an unrelated reason', () => {
     const form = mount();
     form.transaction = null;

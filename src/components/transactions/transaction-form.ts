@@ -48,7 +48,9 @@ export class TransactionForm extends HTMLElement {
     const { categories, budgets } = appStore.getState();
     const t = this.editing;
     const categoryOptions = categories.filter((c) => c.parentId === null);
-    const subcategoryOptions = categories.filter((c) => c.parentId === this.categoryId);
+    const subcategoryOptions = this.categoryId
+      ? categories.filter((c) => c.parentId === this.categoryId)
+      : [];
     const budgetOptions = budgets;
 
     root.innerHTML = `
