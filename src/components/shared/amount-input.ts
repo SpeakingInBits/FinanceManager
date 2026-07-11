@@ -39,7 +39,9 @@ export class AmountInput extends HTMLElement {
 
   set valueCents(cents: number) {
     if (this.inputEl) {
-      this.inputEl.value = (cents / 100).toFixed(2);
+      // Leave the field empty (showing the placeholder) instead of a literal "0.00" the user
+      // would otherwise have to delete before typing a real amount.
+      this.inputEl.value = cents === 0 ? '' : (cents / 100).toFixed(2);
       this.internals.setFormValue(String(cents));
     }
   }

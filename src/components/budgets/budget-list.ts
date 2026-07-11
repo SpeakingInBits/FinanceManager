@@ -39,7 +39,9 @@ export class BudgetList extends HTMLElement {
     for (const b of budgets) {
       const card = document.createElement('budget-card') as BudgetCard;
       card.budget = b;
-      card.categoryName = b.categoryId ? (byId.get(b.categoryId)?.name ?? 'General') : 'General';
+      const categoryName = b.categoryId ? (byId.get(b.categoryId)?.name ?? 'General') : 'General';
+      const subcategoryName = b.subcategoryId ? byId.get(b.subcategoryId)?.name : undefined;
+      card.categoryName = subcategoryName ? `${categoryName} · ${subcategoryName}` : categoryName;
       card.transactions = transactions;
       list.appendChild(card);
     }

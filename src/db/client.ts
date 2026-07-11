@@ -43,6 +43,18 @@ interface LegacyCategoryV3 {
   createdAt: number;
 }
 
+/** Pre-migration (DB_VERSION < 5) shape of a budgets record: no subcategoryId. */
+interface LegacyBudgetV4 {
+  id: string;
+  name: string;
+  targetAmount: number;
+  periodType: BudgetPeriodType;
+  startDate: number;
+  endDate: number | null;
+  categoryId: string | null;
+  createdAt: number;
+}
+
 export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
   if (!dbPromise) {
     dbPromise = openDB<FinanceDB>(DB_NAME, DB_VERSION, {
@@ -64,7 +76,7 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
 
           db.createObjectStore('settings', { keyPath: 'key' });
         }
-        // Future migrations: if (oldVersion < 5) { ... } — never edit the blocks above.
+        // Future migrations: if (oldVersion < 6) { ... } — never edit the blocks above.
 
         if (oldVersion < 2) {
           // Budget.amount was renamed to Budget.targetAmount; rename the field on existing records.
@@ -74,7 +86,7 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
             const record = cursor.value as unknown as LegacyBudgetV1;
             if ('amount' in record) {
               const { amount, ...rest } = record;
-              await cursor.update({ ...rest, targetAmount: amount });
+              await cursor.update({ ...rest, targetAmount: amount, subcategoryId: null });
             }
             cursor = await cursor.continue();
           }
@@ -114,6 +126,19 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
             if ('type' in record) {
               const { type: _type, ...rest } = record;
               await cursor.update(rest);
+            }
+            cursor = await cursor.continue();
+          }
+        }
+
+        if (oldVersion < 5) {
+          // Budgets can now be narrowed to a subcategory; backfill the field on existing records.
+          const store = transaction.objectStore('budgets');
+          let cursor = await store.openCursor();
+          while (cursor) {
+            const record = cursor.value as unknown as LegacyBudgetV4;
+            if (!('subcategoryId' in record)) {
+              await cursor.update({ ...record, subcategoryId: null });
             }
             cursor = await cursor.continue();
           }

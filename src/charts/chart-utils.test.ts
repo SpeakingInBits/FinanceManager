@@ -41,6 +41,7 @@ function makeBudget(overrides: Partial<Budget> = {}): Budget {
     startDate: 0,
     endDate: null,
     categoryId: null,
+    subcategoryId: null,
     createdAt: 0,
     ...overrides,
   };
