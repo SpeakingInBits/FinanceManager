@@ -3,6 +3,8 @@ export type BudgetPeriodType = 'monthly' | 'one-time';
 export interface Budget {
   id: string;
   name: string;
+  /** Free-form notes about this budget. Empty string when unset. */
+  description: string;
   /** Integer minor units (cents). Contribution goal for this budget's period window (not a spending cap). */
   targetAmount: number;
   periodType: BudgetPeriodType;

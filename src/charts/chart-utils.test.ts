@@ -36,6 +36,7 @@ function makeBudget(overrides: Partial<Budget> = {}): Budget {
   return {
     id: 'b1',
     name: 'Vacation',
+    description: '',
     targetAmount: 10000,
     periodType: 'monthly',
     startDate: 0,
