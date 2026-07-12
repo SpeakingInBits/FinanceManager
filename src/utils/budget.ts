@@ -1,23 +1,32 @@
 import { monthBounds } from './date';
-import type { Budget } from '@/models/budget';
+import type { Budget, BudgetPeriodType } from '@/models/budget';
 import type { Transaction } from '@/models/transaction';
 
 export interface BudgetStats {
+  periodType: BudgetPeriodType;
   /** Lifetime balance: all-time income linked to this budget minus all-time expense linked to it. Can be negative. */
   balance: number;
   overdrawn: boolean;
   /** Income linked to this budget within the current contribution window. */
   contributed: number;
   target: number;
-  /** contributed / target, clamped; 0 when target <= 0. */
-  contributionPercent: number;
-  contributionComplete: boolean;
+  /**
+   * Amount filling the progress bar toward `target`. Monthly budgets track this window's
+   * `contributed` income; one-time budgets track the lifetime `balance` — the money on hand to
+   * spend down, so the bar shows how much of the goal is currently funded rather than requiring
+   * repeated contributions.
+   */
+  progress: number;
+  /** progress / target, clamped to [0, 999]; 0 when target <= 0. */
+  progressPercent: number;
+  progressComplete: boolean;
 }
 
 /**
  * Computes a budget's all-time spendable balance (income minus expense, unbounded) and its
- * contribution progress toward `targetAmount` within the active window: the current calendar
- * month for 'monthly' budgets, or [startDate, endDate ?? Infinity] for 'one-time' budgets.
+ * progress toward `targetAmount`. Monthly budgets progress by income contributed within the
+ * current calendar month; one-time budgets progress by their lifetime balance across
+ * [startDate, endDate ?? Infinity], reflecting funds available to spend down.
  */
 export function computeBudgetStats(budget: Budget, transactions: Transaction[]): BudgetStats {
   const [windowStart, windowEnd] =
@@ -39,14 +48,17 @@ export function computeBudgetStats(budget: Budget, transactions: Transaction[]):
 
   const balance = income - expense;
   const target = budget.targetAmount;
-  const contributionPercent = target > 0 ? Math.min(contributed / target, 999) : 0;
+  const progress = budget.periodType === 'one-time' ? balance : contributed;
+  const progressPercent = target > 0 ? Math.max(0, Math.min(progress / target, 999)) : 0;
 
   return {
+    periodType: budget.periodType,
     balance,
     overdrawn: balance < 0,
     contributed,
     target,
-    contributionPercent,
-    contributionComplete: target > 0 && contributed >= target,
+    progress,
+    progressPercent,
+    progressComplete: target > 0 && progress >= target,
   };
 }
