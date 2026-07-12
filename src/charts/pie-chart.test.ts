@@ -157,16 +157,11 @@ describe('pie-chart legend', () => {
 });
 
 describe('pie-chart exploded slices', () => {
-  it('offsets every slice outward with a translate transform when there is more than one', async () => {
+  it('offsets each category outward with a translate transform when there is more than one', async () => {
     const el = mount();
     el.data = [
-      group({
-        categoryName: 'Split',
-        slices: [
-          subSlice({ key: 'a', label: 'A', total: 100 }),
-          subSlice({ key: 'b', label: 'B', total: 100 }),
-        ],
-      }),
+      group({ categoryId: 'a', categoryName: 'A', total: 100, slices: [subSlice({ key: 'a', label: 'A', total: 100 })] }),
+      group({ categoryId: 'b', categoryName: 'B', total: 100, slices: [subSlice({ key: 'b', label: 'B', total: 100 })] }),
     ];
     await nextFrame();
     const paths = [...el.shadowRoot!.querySelectorAll('path')];
@@ -176,11 +171,45 @@ describe('pie-chart exploded slices', () => {
     }
   });
 
-  it('offsets slices in different directions so opposing slices do not share a transform', async () => {
+  it('offsets different categories in different directions', async () => {
+    const el = mount();
+    el.data = [
+      group({ categoryId: 'a', categoryName: 'A', total: 100, slices: [subSlice({ key: 'a', label: 'A', total: 100 })] }),
+      group({ categoryId: 'b', categoryName: 'B', total: 100, slices: [subSlice({ key: 'b', label: 'B', total: 100 })] }),
+    ];
+    await nextFrame();
+    const transforms = [...el.shadowRoot!.querySelectorAll('path')].map((p) => p.getAttribute('transform'));
+    expect(transforms[0]).not.toBe(transforms[1]);
+  });
+
+  it('keeps subcategory slices of the same category together with a shared offset', async () => {
     const el = mount();
     el.data = [
       group({
-        categoryName: 'Split',
+        categoryId: 'travel',
+        categoryName: 'Travel',
+        total: 200,
+        slices: [
+          subSlice({ key: 'travel:flights', label: 'Flights', total: 120 }),
+          subSlice({ key: 'travel:hotels', label: 'Hotels', total: 80 }),
+        ],
+      }),
+      group({ categoryId: 'food', categoryName: 'Food', total: 100, slices: [subSlice({ key: 'food', label: 'Food', total: 100 })] }),
+    ];
+    await nextFrame();
+    const paths = [...el.shadowRoot!.querySelectorAll('path')];
+    expect(paths).toHaveLength(3);
+    // The two Travel subcategory slices (first two paths) share one explode offset...
+    expect(paths[0]!.getAttribute('transform')).toBe(paths[1]!.getAttribute('transform'));
+    // ...and Food (a different category) is offset differently.
+    expect(paths[2]!.getAttribute('transform')).not.toBe(paths[0]!.getAttribute('transform'));
+  });
+
+  it('does not offset when there is only one category, even with multiple subcategories', async () => {
+    const el = mount();
+    el.data = [
+      group({
+        categoryName: 'Solo',
         slices: [
           subSlice({ key: 'a', label: 'A', total: 100 }),
           subSlice({ key: 'b', label: 'B', total: 100 }),
@@ -188,17 +217,8 @@ describe('pie-chart exploded slices', () => {
       }),
     ];
     await nextFrame();
-    const transforms = [...el.shadowRoot!.querySelectorAll('path')].map((p) =>
-      p.getAttribute('transform'),
-    );
-    expect(transforms[0]).not.toBe(transforms[1]);
-  });
-
-  it('does not offset a single full-ring slice', async () => {
-    const el = mount();
-    el.data = [group({ slices: [subSlice({ key: 'only', label: 'Only', total: 100 })] })];
-    await nextFrame();
-    const path = el.shadowRoot!.querySelector('path')!;
-    expect(path.getAttribute('transform')).toBeNull();
+    for (const p of el.shadowRoot!.querySelectorAll('path')) {
+      expect(p.getAttribute('transform')).toBeNull();
+    }
   });
 });

@@ -134,3 +134,77 @@ describe('transaction-list', () => {
     expect(detailId).toBe('to-edit');
   });
 });
+
+describe('transaction-list grouping', () => {
+  const categories: Category[] = [
+    { id: 'travel', name: 'Travel', parentId: null, color: '#2f6fed', createdAt: 0 },
+    { id: 'flights', name: 'Flights', parentId: 'travel', color: '#2f6fed', createdAt: 0 },
+    { id: 'hotels', name: 'Hotels', parentId: 'travel', color: '#2f6fed', createdAt: 0 },
+    { id: 'food', name: 'Food', parentId: null, color: '#e07a3e', createdAt: 0 },
+  ];
+
+  function titles(el: HTMLElement, selector: string): string[] {
+    return [...el.shadowRoot!.querySelectorAll(selector)].map((n) => n.textContent ?? '');
+  }
+
+  it('splits transactions into Recurring and One-time sections', () => {
+    const el = setup([
+      makeTransaction({ id: 'a', recurrence: 'monthly' }),
+      makeTransaction({ id: 'b', recurrence: null }),
+    ]);
+    expect(titles(el, '.group-title')).toEqual(['Recurring', 'One-time']);
+  });
+
+  it('omits a section that has no transactions', () => {
+    const el = setup([makeTransaction({ id: 'a', recurrence: null })]);
+    expect(titles(el, '.group-title')).toEqual(['One-time']);
+  });
+
+  it('groups by category within a recurrence section, Uncategorized last', () => {
+    const el = setup(
+      [
+        makeTransaction({ id: 'a', categoryId: 'food' }),
+        makeTransaction({ id: 'b', categoryId: 'travel', subcategoryId: 'flights' }),
+        makeTransaction({ id: 'c', categoryId: null }),
+      ],
+      categories,
+    );
+    expect(titles(el, '.category-title')).toEqual(['Food', 'Travel', 'Uncategorized']);
+  });
+
+  it('groups by subcategory within a category, with an Other bucket for direct transactions', () => {
+    const el = setup(
+      [
+        makeTransaction({ id: 'a', categoryId: 'travel', subcategoryId: 'flights' }),
+        makeTransaction({ id: 'b', categoryId: 'travel', subcategoryId: 'hotels' }),
+        makeTransaction({ id: 'c', categoryId: 'travel', subcategoryId: null }),
+      ],
+      categories,
+    );
+    expect(titles(el, '.subcategory-title')).toEqual(['Flights', 'Hotels', 'Other']);
+  });
+
+  it('does not show a subcategory header when a category has no subcategories in use', () => {
+    const el = setup([makeTransaction({ id: 'a', categoryId: 'food' })], categories);
+    expect(el.shadowRoot!.querySelector('.subcategory-title')).toBeNull();
+    // The item still renders directly under the category group.
+    expect(el.shadowRoot!.querySelectorAll('transaction-list-item')).toHaveLength(1);
+  });
+
+  it('places each transaction under the correct recurrence + category + subcategory path', () => {
+    const el = setup(
+      [
+        makeTransaction({ id: 'rec-flight', recurrence: 'monthly', categoryId: 'travel', subcategoryId: 'flights' }),
+        makeTransaction({ id: 'one-food', recurrence: null, categoryId: 'food' }),
+      ],
+      categories,
+    );
+    const recurring = el.shadowRoot!.querySelectorAll('.group')[0]!;
+    const oneTime = el.shadowRoot!.querySelectorAll('.group')[1]!;
+    expect(recurring.querySelector('.group-title')!.textContent).toBe('Recurring');
+    expect(recurring.querySelector('.category-title')!.textContent).toContain('Travel');
+    expect(recurring.querySelector('.subcategory-title')!.textContent).toBe('Flights');
+    expect(oneTime.querySelector('.group-title')!.textContent).toBe('One-time');
+    expect(oneTime.querySelector('.category-title')!.textContent).toContain('Food');
+  });
+});
