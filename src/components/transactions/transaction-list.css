@@ -5,4 +5,46 @@
 .list {
   display: flex;
   flex-direction: column;
+  gap: var(--space-5);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.group-title {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+}
+
+.category-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.category-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-top: var(--space-2);
+}
+
+.category-title .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.subcategory-title {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  padding-left: var(--space-4);
+  margin-top: var(--space-1);
 }
