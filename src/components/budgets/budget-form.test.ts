@@ -11,6 +11,7 @@ function makeBudget(overrides: Partial<Budget> = {}): Budget {
   return {
     id: 'b1',
     name: 'Groceries',
+    description: '',
     targetAmount: 10000,
     periodType: 'monthly',
     startDate: new Date(2026, 5, 1).getTime(),
@@ -170,6 +171,27 @@ describe('budget-form', () => {
     const detail = submit(form);
     expect(detail.input.categoryId).toBeNull();
     expect(detail.input.subcategoryId).toBeNull();
+  });
+
+  it('submits the entered description as notes', () => {
+    const form = mount();
+    form.budget = null;
+    const nameEl = form.shadowRoot!.querySelector<HTMLInputElement>('#name')!;
+    nameEl.value = 'Rainy day';
+    nameEl.dispatchEvent(new Event('input', { bubbles: true }));
+    const descriptionEl = form.shadowRoot!.querySelector<HTMLTextAreaElement>('#description')!;
+    descriptionEl.value = '  Emergency savings for the roof  ';
+    descriptionEl.dispatchEvent(new Event('input', { bubbles: true }));
+    const detail = submit(form);
+    expect(detail.input.description).toBe('Emergency savings for the roof');
+  });
+
+  it('populates the description when editing an existing budget', () => {
+    const form = mount();
+    form.budget = makeBudget({ description: 'Set aside for the annual trip' });
+    expect(form.shadowRoot!.querySelector<HTMLTextAreaElement>('#description')!.value).toBe(
+      'Set aside for the annual trip',
+    );
   });
 
   it('leaves the end date optional for a one-time budget', () => {

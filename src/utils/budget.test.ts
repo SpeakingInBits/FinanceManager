@@ -7,6 +7,7 @@ function makeBudget(overrides: Partial<Budget> = {}): Budget {
   return {
     id: 'b1',
     name: 'Groceries',
+    description: '',
     targetAmount: 10000,
     periodType: 'monthly',
     startDate: new Date(2026, 5, 1).getTime(),

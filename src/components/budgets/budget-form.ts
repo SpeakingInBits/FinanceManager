@@ -10,6 +10,7 @@ export class BudgetForm extends HTMLElement {
   private editing: Budget | null = null;
   private periodType: BudgetPeriodType = 'monthly';
   private name = '';
+  private description = '';
   private amountCents = 0;
   private startDate = '';
   private endDate = '';
@@ -26,6 +27,7 @@ export class BudgetForm extends HTMLElement {
     this.editing = value;
     this.periodType = value?.periodType ?? 'monthly';
     this.name = value?.name ?? '';
+    this.description = value?.description ?? '';
     this.amountCents = value?.targetAmount ?? 0;
     this.startDate = millisToDateInput(value?.startDate ?? Date.now());
     this.endDate = value?.endDate ? millisToDateInput(value.endDate) : '';
@@ -58,6 +60,11 @@ export class BudgetForm extends HTMLElement {
         <div class="field">
           <label for="name">Name</label>
           <input type="text" id="name" value="${this.name}" required />
+        </div>
+
+        <div class="field">
+          <label for="description">Description (optional)</label>
+          <textarea id="description">${this.description}</textarea>
         </div>
 
         <div class="field">
@@ -130,6 +137,10 @@ export class BudgetForm extends HTMLElement {
       this.name = (e.target as HTMLInputElement).value;
     });
 
+    root.querySelector<HTMLTextAreaElement>('#description')!.addEventListener('input', (e) => {
+      this.description = (e.target as HTMLTextAreaElement).value;
+    });
+
     const amountEl = root.querySelector<HTMLElement & { valueCents: number }>('#amount')!;
     amountEl.addEventListener('input', () => {
       this.amountCents = amountEl.valueCents;
@@ -160,6 +171,7 @@ export class BudgetForm extends HTMLElement {
     root.querySelector('form')!.addEventListener('submit', (e) => {
       e.preventDefault();
       const nameEl = root.querySelector<HTMLInputElement>('#name')!;
+      const descriptionEl = root.querySelector<HTMLTextAreaElement>('#description')!;
       const amountEl = root.querySelector<HTMLElement & { valueCents: number }>('#amount')!;
       const startEl = root.querySelector<HTMLInputElement>('#start')!;
       const endEl = root.querySelector<HTMLInputElement>('#end')!;
@@ -172,6 +184,7 @@ export class BudgetForm extends HTMLElement {
             id: b?.id,
             input: {
               name: nameEl.value.trim(),
+              description: descriptionEl.value.trim(),
               targetAmount: amountEl.valueCents,
               periodType: this.periodType,
               startDate: dateInputToMillis(startEl.value),

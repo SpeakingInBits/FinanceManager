@@ -7,6 +7,7 @@ import type { NewBudget } from '@/models/budget';
 function newBudget(overrides: Partial<NewBudget> = {}): NewBudget {
   return {
     name: 'Groceries',
+    description: '',
     targetAmount: 10000,
     periodType: 'monthly',
     startDate: new Date(2026, 0, 1).getTime(),

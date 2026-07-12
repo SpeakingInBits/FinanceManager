@@ -1,6 +1,6 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import { DB_NAME, DB_VERSION, type FinanceDB } from './schema';
-import type { BudgetPeriodType } from '@/models/budget';
+import type { Budget, BudgetPeriodType } from '@/models/budget';
 import type { RecurrenceFrequency, TransactionType } from '@/models/transaction';
 
 let dbPromise: Promise<IDBPDatabase<FinanceDB>> | null = null;
@@ -55,6 +55,19 @@ interface LegacyBudgetV4 {
   createdAt: number;
 }
 
+/** Pre-migration (DB_VERSION < 6) shape of a budgets record: no description. */
+interface LegacyBudgetV5 {
+  id: string;
+  name: string;
+  targetAmount: number;
+  periodType: BudgetPeriodType;
+  startDate: number;
+  endDate: number | null;
+  categoryId: string | null;
+  subcategoryId: string | null;
+  createdAt: number;
+}
+
 export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
   if (!dbPromise) {
     dbPromise = openDB<FinanceDB>(DB_NAME, DB_VERSION, {
@@ -86,7 +99,8 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
             const record = cursor.value as unknown as LegacyBudgetV1;
             if ('amount' in record) {
               const { amount, ...rest } = record;
-              await cursor.update({ ...rest, targetAmount: amount, subcategoryId: null });
+              // subcategoryId and description are backfilled by the < 5 / < 6 blocks below.
+              await cursor.update({ ...rest, targetAmount: amount, subcategoryId: null } as Budget);
             }
             cursor = await cursor.continue();
           }
@@ -138,7 +152,21 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
           while (cursor) {
             const record = cursor.value as unknown as LegacyBudgetV4;
             if (!('subcategoryId' in record)) {
-              await cursor.update({ ...record, subcategoryId: null });
+              // description is backfilled by the < 6 block below.
+              await cursor.update({ ...record, subcategoryId: null } as Budget);
+            }
+            cursor = await cursor.continue();
+          }
+        }
+
+        if (oldVersion < 6) {
+          // Budgets can now carry a free-form description; backfill the field on existing records.
+          const store = transaction.objectStore('budgets');
+          let cursor = await store.openCursor();
+          while (cursor) {
+            const record = cursor.value as unknown as LegacyBudgetV5;
+            if (!('description' in record)) {
+              await cursor.update({ ...record, description: '' });
             }
             cursor = await cursor.continue();
           }
