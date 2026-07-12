@@ -87,29 +87,64 @@ describe('computeBudgetStats', () => {
     expect(computeBudgetStats(budget, transactions).balance).toBe(0);
   });
 
-  it('computes contribution percent against the target', () => {
+  it('progresses monthly budgets by contributed income against the target', () => {
     const budget = makeBudget({ targetAmount: 1000 });
     const transactions = [makeTransaction({ amount: 250 })];
-    expect(computeBudgetStats(budget, transactions).contributionPercent).toBeCloseTo(0.25);
+    const stats = computeBudgetStats(budget, transactions);
+    expect(stats.progress).toBe(250);
+    expect(stats.progressPercent).toBeCloseTo(0.25);
   });
 
-  it('reports contribution complete once contributed reaches the target', () => {
+  it('reports progress complete once a monthly budget reaches the target', () => {
     const budget = makeBudget({ targetAmount: 1000 });
     const transactions = [makeTransaction({ amount: 1000 })];
-    expect(computeBudgetStats(budget, transactions).contributionComplete).toBe(true);
+    expect(computeBudgetStats(budget, transactions).progressComplete).toBe(true);
   });
 
-  it('does not report contribution complete when under target', () => {
+  it('does not report progress complete when under target', () => {
     const budget = makeBudget({ targetAmount: 1000 });
     const transactions = [makeTransaction({ amount: 999 })];
-    expect(computeBudgetStats(budget, transactions).contributionComplete).toBe(false);
+    expect(computeBudgetStats(budget, transactions).progressComplete).toBe(false);
   });
 
-  it('caps contribution percent at 999 and reports 0 for a zero-target budget', () => {
+  it('caps progress percent at 999 and reports 0 for a zero-target budget', () => {
     const budget = makeBudget({ targetAmount: 0 });
     const stats = computeBudgetStats(budget, []);
-    expect(stats.contributionPercent).toBe(0);
-    expect(stats.contributionComplete).toBe(false);
+    expect(stats.progressPercent).toBe(0);
+    expect(stats.progressComplete).toBe(false);
+  });
+
+  it('progresses one-time budgets by lifetime balance rather than windowed contributions', () => {
+    const budget = makeBudget({
+      periodType: 'one-time',
+      targetAmount: 10000,
+      startDate: new Date(2026, 0, 1).getTime(),
+      endDate: null,
+    });
+    const transactions = [
+      makeTransaction({ id: 'fund', type: 'income', amount: 10000, date: new Date(2026, 1, 1).getTime() }),
+      makeTransaction({ id: 'spend', type: 'expense', amount: 4000, date: new Date(2026, 3, 1).getTime() }),
+    ];
+    const stats = computeBudgetStats(budget, transactions);
+    // Balance on hand is 6000 of the 10000 goal: the bar shows funds available, not each contribution.
+    expect(stats.progress).toBe(6000);
+    expect(stats.progressPercent).toBeCloseTo(0.6);
+    expect(stats.progressComplete).toBe(false);
+  });
+
+  it('reports a one-time budget complete when its balance covers the target', () => {
+    const budget = makeBudget({ periodType: 'one-time', targetAmount: 10000, endDate: null });
+    const transactions = [makeTransaction({ type: 'income', amount: 10000 })];
+    expect(computeBudgetStats(budget, transactions).progressComplete).toBe(true);
+  });
+
+  it('clamps one-time progress percent to 0 when the budget is overdrawn', () => {
+    const budget = makeBudget({ periodType: 'one-time', targetAmount: 10000, endDate: null });
+    const transactions = [makeTransaction({ type: 'expense', amount: 500 })];
+    const stats = computeBudgetStats(budget, transactions);
+    expect(stats.progress).toBe(-500);
+    expect(stats.progressPercent).toBe(0);
+    expect(stats.overdrawn).toBe(true);
   });
 
   it('uses the explicit start/end range for one-time budgets', () => {
