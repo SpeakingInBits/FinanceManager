@@ -127,6 +127,61 @@ describe('dashboard-view stat tiles', () => {
     expect(stat(el, 'income-stat')).toBe('$0.00');
   });
 
+  it('subtracts this month\'s budget contributions from Net in the allocations tile', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ id: 'a', type: 'income', amount: 5000 }),
+        makeTransaction({ id: 'b', type: 'expense', amount: 2000 }),
+        makeTransaction({ id: 'c', type: 'income', amount: 1000, budgetId: 'b1' }),
+      ],
+    });
+    const el = mount();
+    expect(stat(el, 'net-stat')).toBe('$30.00');
+    expect(stat(el, 'net-after-allocations-stat')).toBe('$20.00');
+  });
+
+  it('matches Net when nothing is allocated to a budget', () => {
+    appStore.setState({
+      transactions: [
+        makeTransaction({ id: 'a', type: 'income', amount: 5000 }),
+        makeTransaction({ id: 'b', type: 'expense', amount: 2000 }),
+      ],
+    });
+    const el = mount();
+    expect(stat(el, 'net-after-allocations-stat')).toBe('$30.00');
+  });
+
+  it('ignores spending out of a budget when computing allocations', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ id: 'a', type: 'income', amount: 5000 }),
+        makeTransaction({ id: 'b', type: 'expense', amount: 8888, budgetId: 'b1' }),
+      ],
+    });
+    const el = mount();
+    expect(stat(el, 'net-after-allocations-stat')).toBe('$50.00');
+  });
+
+  it('excludes budget contributions from a different month', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ id: 'a', type: 'income', amount: 5000 }),
+        makeTransaction({
+          id: 'c',
+          type: 'income',
+          amount: 1000,
+          budgetId: 'b1',
+          date: new Date(2026, 5, 1).getTime(),
+        }),
+      ],
+    });
+    const el = mount();
+    expect(stat(el, 'net-after-allocations-stat')).toBe('$50.00');
+  });
+
   it('does not let a budget withdrawal inflate either expenses tile', () => {
     appStore.setState({
       budgets: [makeBudget({ id: 'b1' })],
