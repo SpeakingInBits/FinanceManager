@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { categoryBreakdown, categoryBreakdownBySubcategory, shadeForIndex, buildSankeyGraph } from './chart-utils';
+import { categoryBreakdown, categoryBreakdownBySubcategory, buildSankeyGraph } from './chart-utils';
 import type { Transaction } from '@/models/transaction';
 import type { Category } from '@/models/category';
 import type { Budget } from '@/models/budget';
@@ -167,26 +167,6 @@ describe('buildSankeyGraph', () => {
   });
 });
 
-describe('shadeForIndex', () => {
-  it('returns the base color unchanged when there is only one slice', () => {
-    expect(shadeForIndex('#2f6fed', 0, 1)).toBe('#2f6fed');
-  });
-
-  it('produces distinct colors for each of several slices', () => {
-    const colors = [0, 1, 2].map((i) => shadeForIndex('#2f6fed', i, 3));
-    expect(new Set(colors).size).toBe(3);
-  });
-
-  it('is deterministic for the same index/count', () => {
-    expect(shadeForIndex('#2f6fed', 1, 3)).toBe(shadeForIndex('#2f6fed', 1, 3));
-  });
-
-  it('produces a valid hex color', () => {
-    const color = shadeForIndex('#2f6fed', 2, 4);
-    expect(color).toMatch(/^#[0-9a-f]{6}$/i);
-  });
-});
-
 describe('categoryBreakdownBySubcategory', () => {
   it('returns a single unsplit slice for a category with no subcategory usage', () => {
     const categories = [makeCategory({ id: 'food', name: 'Food', color: '#111' })];
@@ -233,19 +213,46 @@ describe('categoryBreakdownBySubcategory', () => {
     expect(other?.total).toBe(400);
   });
 
-  it('gives sibling slices within a category distinct shades of the base color', () => {
+  it('gives each subcategory slice its own assigned color', () => {
     const categories = [
       makeCategory({ id: 'travel', name: 'Travel', color: '#2f6fed' }),
-      makeCategory({ id: 'flights', name: 'Flights', parentId: 'travel' }),
-      makeCategory({ id: 'hotels', name: 'Hotels', parentId: 'travel' }),
+      makeCategory({ id: 'flights', name: 'Flights', parentId: 'travel', color: '#00ff00' }),
+      makeCategory({ id: 'hotels', name: 'Hotels', parentId: 'travel', color: '#0000ff' }),
     ];
     const transactions = [
       makeTransaction({ categoryId: 'travel', subcategoryId: 'flights', amount: 600 }),
       makeTransaction({ categoryId: 'travel', subcategoryId: 'hotels', amount: 400 }),
     ];
     const result = categoryBreakdownBySubcategory(transactions, categories, 'expense');
-    const colors = result[0]!.slices.map((s) => s.color);
-    expect(new Set(colors).size).toBe(colors.length);
+    const byLabel = new Map(result[0]!.slices.map((s) => [s.label, s.color]));
+    expect(byLabel.get('Flights')).toBe('#00ff00');
+    expect(byLabel.get('Hotels')).toBe('#0000ff');
+  });
+
+  it('falls back to the parent category color for the "Other" bucket', () => {
+    const categories = [
+      makeCategory({ id: 'travel', name: 'Travel', color: '#2f6fed' }),
+      makeCategory({ id: 'flights', name: 'Flights', parentId: 'travel', color: '#00ff00' }),
+    ];
+    const transactions = [
+      makeTransaction({ categoryId: 'travel', subcategoryId: 'flights', amount: 600 }),
+      makeTransaction({ categoryId: 'travel', subcategoryId: null, amount: 400 }),
+    ];
+    const result = categoryBreakdownBySubcategory(transactions, categories, 'expense');
+    const other = result[0]!.slices.find((s) => s.subcategoryId === null);
+    expect(other?.color).toBe('#2f6fed');
+  });
+
+  it('falls back to the parent category color when a subcategory is missing from the list', () => {
+    const categories = [makeCategory({ id: 'travel', name: 'Travel', color: '#2f6fed' })];
+    const transactions = [
+      makeTransaction({ categoryId: 'travel', subcategoryId: 'ghost', amount: 600 }),
+      makeTransaction({ categoryId: 'travel', subcategoryId: null, amount: 400 }),
+    ];
+    const result = categoryBreakdownBySubcategory(transactions, categories, 'expense');
+    const ghost = result[0]!.slices.find((s) => s.subcategoryId === 'ghost');
+    expect(ghost?.label).toBe('Unknown');
+    expect(ghost?.color).toBe('#2f6fed');
   });
 
   it('sorts groups by total descending, and slices within a group by total descending', () => {

@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import './pie-chart';
 import type { PieChart } from './pie-chart';
+import { categoryBreakdownBySubcategory } from './chart-utils';
 import type { CategoryGroupSlice, CategorySubSlice } from './chart-utils';
+import type { Category } from '@/models/category';
+import type { Transaction } from '@/models/transaction';
 
 function mount(): PieChart {
   document.body.innerHTML = '';
@@ -220,5 +223,65 @@ describe('pie-chart exploded slices', () => {
     for (const p of el.shadowRoot!.querySelectorAll('path')) {
       expect(p.getAttribute('transform')).toBeNull();
     }
+  });
+});
+
+describe('pie-chart slice colors', () => {
+  it('paints each slice with the color it was assigned', async () => {
+    const el = mount();
+    el.data = [
+      group({
+        categoryId: 'travel',
+        categoryName: 'Travel',
+        color: '#2f6fed',
+        total: 1000,
+        slices: [
+          subSlice({ key: 'travel:flights', categoryId: 'travel', subcategoryId: 'flights', label: 'Flights', total: 600, color: '#e91e63' }),
+          subSlice({ key: 'travel:hotels', categoryId: 'travel', subcategoryId: 'hotels', label: 'Hotels', total: 400, color: '#00bcd4' }),
+        ],
+      }),
+    ];
+    await nextFrame();
+    const fills = [...el.shadowRoot!.querySelectorAll('path')].map((p) => p.getAttribute('fill'));
+    expect(fills).toEqual(['#e91e63', '#00bcd4']);
+  });
+
+  it('carries assigned category and subcategory colors from the breakdown through to the rendered slices', async () => {
+    const categories: Category[] = [
+      { id: 'travel', name: 'Travel', parentId: null, color: '#2f6fed', createdAt: 0 },
+      { id: 'flights', name: 'Flights', parentId: 'travel', color: '#e91e63', createdAt: 0 },
+      { id: 'hotels', name: 'Hotels', parentId: 'travel', color: '#00bcd4', createdAt: 0 },
+      { id: 'food', name: 'Food', parentId: null, color: '#ff9800', createdAt: 0 },
+    ];
+    const tx = (id: string, amount: number, categoryId: string, subcategoryId: string | null): Transaction => ({
+      id,
+      type: 'expense',
+      amount,
+      date: 0,
+      categoryId,
+      subcategoryId,
+      budgetId: null,
+      note: '',
+      recurrence: null,
+      createdAt: 0,
+      updatedAt: 0,
+    });
+
+    const el = mount();
+    el.data = categoryBreakdownBySubcategory(
+      [
+        tx('x1', 600, 'travel', 'flights'),
+        tx('x2', 400, 'travel', 'hotels'),
+        tx('x3', 200, 'travel', null),
+        tx('x4', 300, 'food', null),
+      ],
+      categories,
+      'expense',
+    );
+    await nextFrame();
+    const fills = [...el.shadowRoot!.querySelectorAll('path')].map((p) => p.getAttribute('fill'));
+    // Travel's slices sort by total: Flights, Hotels, then the "Other" bucket which has no
+    // subcategory color of its own and so takes Travel's. Food is an unsplit category.
+    expect(fills).toEqual(['#e91e63', '#00bcd4', '#2f6fed', '#ff9800']);
   });
 });
