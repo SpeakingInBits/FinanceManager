@@ -148,82 +148,6 @@ export function buildSankeyGraph(
 }
 
 const NO_SUBCATEGORY = '__none__';
-const SHADE_SPREAD = 26;
-
-function hexToRgb(hex: string): [number, number, number] {
-  const clean = hex.replace('#', '');
-  const full =
-    clean.length === 3
-      ? clean
-          .split('')
-          .map((c) => c + c)
-          .join('')
-      : clean;
-  const num = Number.parseInt(full, 16);
-  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
-}
-
-function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
-  r /= 255;
-  g /= 255;
-  b /= 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  let h = 0;
-  let s = 0;
-  const d = max - min;
-  if (d !== 0) {
-    s = d / (1 - Math.abs(2 * l - 1));
-    switch (max) {
-      case r:
-        h = ((g - b) / d) % 6;
-        break;
-      case g:
-        h = (b - r) / d + 2;
-        break;
-      default:
-        h = (r - g) / d + 4;
-    }
-    h *= 60;
-    if (h < 0) h += 360;
-  }
-  return [h, s * 100, l * 100];
-}
-
-function hslToHex(h: number, s: number, l: number): string {
-  s /= 100;
-  l /= 100;
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-  const m = l - c / 2;
-  let [r, g, b] = [0, 0, 0];
-  if (h < 60) [r, g, b] = [c, x, 0];
-  else if (h < 120) [r, g, b] = [x, c, 0];
-  else if (h < 180) [r, g, b] = [0, c, x];
-  else if (h < 240) [r, g, b] = [0, x, c];
-  else if (h < 300) [r, g, b] = [x, 0, c];
-  else [r, g, b] = [c, 0, x];
-  const toHex = (v: number) =>
-    Math.round((v + m) * 255)
-      .toString(16)
-      .padStart(2, '0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-/**
- * Produces a distinguishable-but-related shade of `hex` for slice `index` of `count` sibling
- * slices, by spreading lightness around the base color while keeping hue/saturation fixed.
- * Returns `hex` unchanged when there's only one slice.
- */
-export function shadeForIndex(hex: string, index: number, count: number): string {
-  if (count <= 1) return hex;
-  const [h, s, l] = rgbToHsl(...hexToRgb(hex));
-  const step = (SHADE_SPREAD * 2) / (count - 1);
-  const target = l - SHADE_SPREAD + step * index;
-  const clamped = Math.min(88, Math.max(12, target));
-  return hslToHex(h, s, clamped);
-}
 
 export interface CategorySubSlice {
   key: string;
@@ -278,9 +202,10 @@ export function categoryBreakdownBySubcategory(
 
     const categoryTotal = subEntries.reduce((sum, e) => sum + e.total, 0);
 
-    const slices: CategorySubSlice[] = subEntries.map((entry, i) => {
+    const slices: CategorySubSlice[] = subEntries.map((entry) => {
+      const subcategory = entry.subcategoryId ? byId.get(entry.subcategoryId) : undefined;
       const label = entry.subcategoryId
-        ? (byId.get(entry.subcategoryId)?.name ?? 'Unknown')
+        ? (subcategory?.name ?? 'Unknown')
         : subEntries.length > 1
           ? 'Other'
           : categoryName;
@@ -290,7 +215,10 @@ export function categoryBreakdownBySubcategory(
         subcategoryId: entry.subcategoryId,
         label,
         total: entry.total,
-        color: shadeForIndex(baseColor, i, subEntries.length),
+        // Each subcategory carries its own assigned color, the same one shown on its list swatch.
+        // The "Other" bucket and unsplit categories have no subcategory of their own, so they take
+        // the parent category's color.
+        color: subcategory?.color ?? baseColor,
       };
     });
 
