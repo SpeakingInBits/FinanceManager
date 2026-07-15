@@ -36,6 +36,10 @@ export class DashboardView extends HTMLElement {
           <div class="stat-label">Net</div>
           <div class="stat-value net-stat"></div>
         </div>
+        <div class="card stat-tile">
+          <div class="stat-label">Net after allocations</div>
+          <div class="stat-value net-after-allocations-stat"></div>
+        </div>
       </div>
 
       <section class="card">
@@ -100,6 +104,12 @@ export class DashboardView extends HTMLElement {
     // Money earmarked for a budget isn't normal cash flow: it's a contribution into (or spend
     // from) that budget's own balance, not part of this month's regular income/expenses.
     const notBudgeted = inMonth.filter((t) => t.budgetId === null);
+    // Contributions into budgets this month: income earmarked for a budget. It never reaches the
+    // Net tile (which only counts unbudgeted cash flow), so subtracting it from Net shows what's
+    // left over once this month's budget funding is set aside.
+    const allocations = inMonth
+      .filter((t) => t.budgetId !== null && t.type === 'income')
+      .reduce((s, t) => s + t.amount, 0);
 
     const income = notBudgeted.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expenses = notBudgeted.filter((t) => t.type === 'expense');
@@ -115,7 +125,9 @@ export class DashboardView extends HTMLElement {
     this.querySelector('.income-stat')!.textContent = formatCents(income);
     this.querySelector('.recurring-expense-stat')!.textContent = formatCents(recurringExpense);
     this.querySelector('.onetime-expense-stat')!.textContent = formatCents(oneTimeExpense);
-    this.querySelector('.net-stat')!.textContent = formatCents(income - expense);
+    const net = income - expense;
+    this.querySelector('.net-stat')!.textContent = formatCents(net);
+    this.querySelector('.net-after-allocations-stat')!.textContent = formatCents(net - allocations);
 
     const pie = this.querySelector('pie-chart') as PieChart;
     pie.data = categoryBreakdownBySubcategory(notBudgeted, categories, 'expense');
