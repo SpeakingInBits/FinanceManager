@@ -1,5 +1,6 @@
 import { appStore } from '@/state/app-store';
 import { buildSankeyGraph, categoryBreakdownBySubcategory } from '@/charts/chart-utils';
+import { occurrencesForMonth } from '@/utils/recurrence';
 import type { Transaction } from '@/models/transaction';
 import type { PieChart } from '@/charts/pie-chart';
 import type { SankeyChart } from '@/charts/sankey-chart';
@@ -23,13 +24,14 @@ export class ChartsView extends HTMLElement {
             <button type="button" data-type="income" aria-pressed="false">Income</button>
           </div>
         </div>
+        <month-nav></month-nav>
         <div class="chart-card">
           <pie-chart></pie-chart>
         </div>
       </section>
 
       <section class="card">
-        <h2>Cash flow</h2>
+        <h2>Cash flow (all time)</h2>
         <div class="chart-card">
           <sankey-chart></sankey-chart>
         </div>
@@ -55,9 +57,16 @@ export class ChartsView extends HTMLElement {
   }
 
   private updateCharts(): void {
-    const { transactions, categories, budgets } = appStore.getState();
+    const { transactions, categories, budgets, selectedMonth } = appStore.getState();
+    // The breakdown pie is scoped to the selected month, matching the dashboard: recurring
+    // transactions are projected into the month at their monthly-equivalent amount. The cash-flow
+    // sankey stays all-time — its budget pass-through nodes only make sense across the full history.
+    const inMonth = occurrencesForMonth(transactions, selectedMonth).map((o) => ({
+      ...o.transaction,
+      amount: o.displayAmount,
+    }));
     const pie = this.querySelector('pie-chart') as PieChart;
-    pie.data = categoryBreakdownBySubcategory(transactions, categories, this.pieType);
+    pie.data = categoryBreakdownBySubcategory(inMonth, categories, this.pieType);
 
     const sankey = this.querySelector('sankey-chart') as SankeyChart;
     sankey.data = buildSankeyGraph(transactions, categories, budgets);
