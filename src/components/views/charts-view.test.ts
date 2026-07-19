@@ -161,16 +161,38 @@ describe('charts-view month scoping', () => {
     expect(el.querySelector('pie-chart')!.shadowRoot!.querySelector('svg')!.textContent).toContain('No data yet');
   });
 
-  it('keeps the cash-flow sankey on all-time data', async () => {
+  it('scopes the cash-flow sankey to the selected month', async () => {
     appStore.setState({
-      categories: [makeCategory({ id: 'bonus', name: 'Bonus' })],
+      categories: [makeCategory({ id: 'salary', name: 'Salary' }), makeCategory({ id: 'bonus', name: 'Bonus' })],
       transactions: [
+        makeTransaction({ id: 'a', type: 'income', amount: 5000, categoryId: 'salary' }),
         makeTransaction({ id: 'b', type: 'income', amount: 9999, categoryId: 'bonus', date: june }),
       ],
     });
     const el = mount();
     await nextFrame();
-    // June income is outside the selected month (July) but must still reach the sankey.
-    expect(el.querySelector('sankey-chart')!.shadowRoot!.textContent).toContain('Bonus');
+    const sankeyText = el.querySelector('sankey-chart')!.shadowRoot!.textContent;
+    // July's Salary income is in the selected month; June's Bonus is not.
+    expect(sankeyText).toContain('Salary');
+    expect(sankeyText).not.toContain('Bonus');
+  });
+
+  it('follows the month-nav for the cash-flow sankey too', async () => {
+    appStore.setState({
+      categories: [makeCategory({ id: 'salary', name: 'Salary' }), makeCategory({ id: 'bonus', name: 'Bonus' })],
+      transactions: [
+        makeTransaction({ id: 'a', type: 'income', amount: 5000, categoryId: 'salary' }),
+        makeTransaction({ id: 'b', type: 'income', amount: 9999, categoryId: 'bonus', date: june }),
+      ],
+    });
+    const el = mount();
+    await nextFrame();
+    expect(el.querySelector('sankey-chart')!.shadowRoot!.textContent).toContain('Salary');
+
+    appStore.setState({ selectedMonth: june });
+    await nextFrame();
+    const sankeyText = el.querySelector('sankey-chart')!.shadowRoot!.textContent;
+    expect(sankeyText).toContain('Bonus');
+    expect(sankeyText).not.toContain('Salary');
   });
 });

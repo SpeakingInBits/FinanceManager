@@ -31,7 +31,7 @@ export class ChartsView extends HTMLElement {
       </section>
 
       <section class="card">
-        <h2>Cash flow (all time)</h2>
+        <h2>Cash flow</h2>
         <div class="chart-card">
           <sankey-chart></sankey-chart>
         </div>
@@ -58,9 +58,9 @@ export class ChartsView extends HTMLElement {
 
   private updateCharts(): void {
     const { transactions, categories, budgets, selectedMonth } = appStore.getState();
-    // The breakdown pie is scoped to the selected month, matching the dashboard: recurring
-    // transactions are projected into the month at their monthly-equivalent amount. The cash-flow
-    // sankey stays all-time — its budget pass-through nodes only make sense across the full history.
+    // Both charts are scoped to the selected month, matching the dashboard: recurring transactions
+    // are projected into the month at their monthly-equivalent amount, one-offs are included when
+    // dated within it.
     const inMonth = occurrencesForMonth(transactions, selectedMonth).map((o) => ({
       ...o.transaction,
       amount: o.displayAmount,
@@ -69,7 +69,7 @@ export class ChartsView extends HTMLElement {
     pie.data = categoryBreakdownBySubcategory(inMonth, categories, this.pieType);
 
     const sankey = this.querySelector('sankey-chart') as SankeyChart;
-    sankey.data = buildSankeyGraph(transactions, categories, budgets);
+    sankey.data = buildSankeyGraph(inMonth, categories, budgets);
   }
 }
 
