@@ -37,6 +37,10 @@ export class DashboardView extends HTMLElement {
           <div class="stat-value net-stat"></div>
         </div>
         <div class="card stat-tile">
+          <div class="stat-label">Contrib. to budgets</div>
+          <div class="stat-value contrib-to-budgets-stat"></div>
+        </div>
+        <div class="card stat-tile">
           <div class="stat-label">Net after allocations</div>
           <div class="stat-value net-after-allocations-stat"></div>
         </div>
@@ -127,6 +131,7 @@ export class DashboardView extends HTMLElement {
     this.querySelector('.onetime-expense-stat')!.textContent = formatCents(oneTimeExpense);
     const net = income - expense;
     this.querySelector('.net-stat')!.textContent = formatCents(net);
+    this.querySelector('.contrib-to-budgets-stat')!.textContent = formatCents(allocations);
     this.querySelector('.net-after-allocations-stat')!.textContent = formatCents(net - allocations);
 
     const pie = this.querySelector('pie-chart') as PieChart;
