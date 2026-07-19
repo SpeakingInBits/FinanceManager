@@ -141,6 +141,57 @@ describe('dashboard-view stat tiles', () => {
     expect(stat(el, 'net-after-allocations-stat')).toBe('$20.00');
   });
 
+  it('shows this month\'s budget contributions in the Contrib. to budgets tile', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ id: 'a', type: 'income', amount: 5000 }),
+        makeTransaction({ id: 'c', type: 'income', amount: 1000, budgetId: 'b1' }),
+        makeTransaction({ id: 'd', type: 'income', amount: 2500, budgetId: 'b1' }),
+      ],
+    });
+    const el = mount();
+    expect(stat(el, 'contrib-to-budgets-stat')).toBe('$35.00');
+  });
+
+  it('shows $0.00 in the Contrib. to budgets tile when nothing is allocated', () => {
+    appStore.setState({
+      transactions: [makeTransaction({ id: 'a', type: 'income', amount: 5000 })],
+    });
+    const el = mount();
+    expect(stat(el, 'contrib-to-budgets-stat')).toBe('$0.00');
+  });
+
+  it('excludes budget contributions from a different month in the Contrib. to budgets tile', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ id: 'c', type: 'income', amount: 1000, budgetId: 'b1' }),
+        makeTransaction({
+          id: 'd',
+          type: 'income',
+          amount: 9999,
+          budgetId: 'b1',
+          date: new Date(2026, 5, 1).getTime(),
+        }),
+      ],
+    });
+    const el = mount();
+    expect(stat(el, 'contrib-to-budgets-stat')).toBe('$10.00');
+  });
+
+  it('does not count spending out of a budget as a contribution', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ id: 'c', type: 'income', amount: 1000, budgetId: 'b1' }),
+        makeTransaction({ id: 'd', type: 'expense', amount: 8888, budgetId: 'b1' }),
+      ],
+    });
+    const el = mount();
+    expect(stat(el, 'contrib-to-budgets-stat')).toBe('$10.00');
+  });
+
   it('matches Net when nothing is allocated to a budget', () => {
     appStore.setState({
       transactions: [
