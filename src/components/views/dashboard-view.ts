@@ -1,14 +1,18 @@
 import { appStore } from '@/state/app-store';
 import { formatCents } from '@/utils/currency';
+import { startOfMonth } from '@/utils/date';
 import { occurrencesForMonth } from '@/utils/recurrence';
 import { categoryBreakdownBySubcategory } from '@/charts/chart-utils';
 import { AppEvents, type BudgetDeleteDetail } from '@/state/events';
 import type { PieChart } from '@/charts/pie-chart';
 import type { ModalDialog } from '@/components/shared/modal-dialog';
 import type { BudgetForm } from '@/components/budgets/budget-form';
+import type { AllocateFundsForm } from '@/components/budgets/allocate-funds-form';
 
 export class DashboardView extends HTMLElement {
   private unsubscribe?: () => void;
+  /** This month's Net after allocations — the pool "Allocate Remaining Funds" can draw from. */
+  private remainingCents = 0;
 
   connectedCallback(): void {
     this.className = 'view';
@@ -47,7 +51,10 @@ export class DashboardView extends HTMLElement {
       </div>
 
       <section class="card">
-        <h2>Budgets</h2>
+        <div class="view-header">
+          <h2>Budgets</h2>
+          <button type="button" class="btn allocate-remaining-btn">Allocate Remaining Funds</button>
+        </div>
         <budget-list></budget-list>
       </section>
 
@@ -61,7 +68,22 @@ export class DashboardView extends HTMLElement {
       <modal-dialog heading="Edit budget" class="budget-modal">
         <budget-form></budget-form>
       </modal-dialog>
+
+      <modal-dialog heading="Allocate remaining funds" class="allocate-modal">
+        <allocate-funds-form></allocate-funds-form>
+      </modal-dialog>
     `;
+
+    this.querySelector('.allocate-remaining-btn')!.addEventListener('click', () => {
+      const form = this.querySelector('allocate-funds-form') as AllocateFundsForm;
+      const { selectedMonth } = appStore.getState();
+      const now = Date.now();
+      // Date the fills inside the viewed month: today when viewing the current month, the
+      // month's first day otherwise, so they land in the totals the user is looking at.
+      form.allocationDate = startOfMonth(now) === selectedMonth ? now : selectedMonth;
+      form.availableFunds = this.remainingCents;
+      (this.querySelector('.allocate-modal') as ModalDialog).open();
+    });
 
     this.addEventListener('edit', (e) => {
       const { id } = (e as CustomEvent<{ id: string }>).detail;
@@ -84,8 +106,8 @@ export class DashboardView extends HTMLElement {
       }
     });
 
-    this.addEventListener('form-done', () => this.closeBudgetModal());
-    this.addEventListener('form-cancel', () => this.closeBudgetModal());
+    this.addEventListener('form-done', () => this.closeModals());
+    this.addEventListener('form-cancel', () => this.closeModals());
 
     this.unsubscribe = appStore.subscribe(() => this.update());
     this.update();
@@ -95,8 +117,9 @@ export class DashboardView extends HTMLElement {
     this.unsubscribe?.();
   }
 
-  private closeBudgetModal(): void {
+  private closeModals(): void {
     (this.querySelector('.budget-modal') as ModalDialog)?.close();
+    (this.querySelector('.allocate-modal') as ModalDialog)?.close();
   }
 
   private update(): void {
@@ -133,7 +156,12 @@ export class DashboardView extends HTMLElement {
     const net = income - expense;
     this.querySelector('.net-stat')!.textContent = formatCents(net);
     this.querySelector('.contrib-to-budgets-stat')!.textContent = formatCents(allocations);
-    this.querySelector('.net-after-allocations-stat')!.textContent = formatCents(net - allocations);
+    this.remainingCents = net - allocations;
+    this.querySelector('.net-after-allocations-stat')!.textContent = formatCents(this.remainingCents);
+
+    const allocateBtn = this.querySelector<HTMLButtonElement>('.allocate-remaining-btn')!;
+    allocateBtn.disabled = this.remainingCents <= 0;
+    allocateBtn.title = this.remainingCents <= 0 ? 'No unallocated funds this month' : '';
 
     const pie = this.querySelector('pie-chart') as PieChart;
     pie.data = categoryBreakdownBySubcategory(notBudgeted, categories, 'expense');
