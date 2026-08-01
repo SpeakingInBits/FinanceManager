@@ -10,6 +10,7 @@ export class TransactionListItem extends HTMLElement {
   private _occurrence!: MonthlyOccurrence;
   private _categoryName = 'Uncategorized';
   private _categoryColor = '#9aa0a6';
+  private _budgetName = '';
 
   constructor() {
     super();
@@ -32,6 +33,11 @@ export class TransactionListItem extends HTMLElement {
     this.render();
   }
 
+  set budgetName(value: string) {
+    this._budgetName = value;
+    this.render();
+  }
+
   connectedCallback(): void {
     this.render();
   }
@@ -39,7 +45,12 @@ export class TransactionListItem extends HTMLElement {
   private render(): void {
     if (!this._occurrence) return;
     const { transaction: t, displayDate, displayAmount } = this._occurrence;
-    const sign = t.type === 'income' ? '+' : '-';
+    // Allocations move money into a budget rather than in/out of the ledger, so they read as a
+    // transfer (→) labeled with the target budget instead of a category.
+    const isAllocation = t.type === 'allocation';
+    const sign = isAllocation ? '→' : t.type === 'income' ? '+' : '-';
+    const label = isAllocation ? this._budgetName || 'Budget' : this._categoryName;
+    const meta = isAllocation ? `Fill: ${this._budgetName || 'Budget'}` : this._categoryName;
     const recurrenceMeta = t.recurrence
       ? ` · ${RECURRENCE_LABEL[t.recurrence]} (${formatCents(t.amount)}/${t.recurrence === 'yearly' ? 'yr' : 'mo'})`
       : '';
@@ -47,8 +58,8 @@ export class TransactionListItem extends HTMLElement {
       <div class="row">
         <span class="swatch" style="background:${this._categoryColor}"></span>
         <div class="info">
-          <div class="note">${t.note || this._categoryName}</div>
-          <div class="meta">${this._categoryName} · ${formatDate(displayDate)}${recurrenceMeta}</div>
+          <div class="note">${t.note || label}</div>
+          <div class="meta">${meta} · ${formatDate(displayDate)}${recurrenceMeta}</div>
         </div>
         <span class="amount ${t.type}">${sign}${formatCents(displayAmount)}</span>
         <div class="actions">

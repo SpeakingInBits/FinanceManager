@@ -171,6 +171,26 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
             cursor = await cursor.continue();
           }
         }
+
+        if (oldVersion < 7) {
+          // Budgets are now filled from already-logged income via 'allocation' transactions
+          // instead of linking income directly to a budget. Convert existing budget-linked income
+          // records to allocations; they have no category under the new model.
+          const store = transaction.objectStore('transactions');
+          let cursor = await store.openCursor();
+          while (cursor) {
+            const record = cursor.value;
+            if (record.type === 'income' && record.budgetId !== null) {
+              await cursor.update({
+                ...record,
+                type: 'allocation',
+                categoryId: null,
+                subcategoryId: null,
+              });
+            }
+            cursor = await cursor.continue();
+          }
+        }
       },
     });
   }

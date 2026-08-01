@@ -105,14 +105,15 @@ export class DashboardView extends HTMLElement {
       ...o.transaction,
       amount: o.displayAmount,
     }));
-    // Money earmarked for a budget isn't normal cash flow: it's a contribution into (or spend
-    // from) that budget's own balance, not part of this month's regular income/expenses.
+    // Money earmarked for a budget isn't normal cash flow: it's a fill into (or spend from) that
+    // budget's own balance, not part of this month's regular income/expenses.
     const notBudgeted = inMonth.filter((t) => t.budgetId === null);
-    // Contributions into budgets this month: income earmarked for a budget. It never reaches the
-    // Net tile (which only counts unbudgeted cash flow), so subtracting it from Net shows what's
-    // left over once this month's budget funding is set aside.
+    // Fills into budgets this month: 'allocation' transactions (and pre-v7 budget-linked income,
+    // counted the same for unmigrated data). Fills never reach the Net tile (which only counts
+    // unbudgeted cash flow), so subtracting them from Net shows what's left over once this
+    // month's budget funding is set aside.
     const allocations = inMonth
-      .filter((t) => t.budgetId !== null && t.type === 'income')
+      .filter((t) => t.budgetId !== null && t.type !== 'expense')
       .reduce((s, t) => s + t.amount, 0);
 
     const income = notBudgeted.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);

@@ -118,6 +118,34 @@ describe('dashboard-view stat tiles', () => {
     expect(stat(el, 'income-stat')).toBe('$0.00');
   });
 
+  it('counts allocation (fill) transactions in the Contrib. to budgets tile and subtracts them from Net', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ id: 'a', type: 'income', amount: 5000 }),
+        makeTransaction({ id: 'b', type: 'expense', amount: 1000 }),
+        makeTransaction({ id: 'c', type: 'allocation', amount: 1500, budgetId: 'b1' }),
+      ],
+    });
+    const el = mount();
+    // The paycheck counts as regular income in full; the fill moves money out afterwards.
+    expect(stat(el, 'income-stat')).toBe('$50.00');
+    expect(stat(el, 'contrib-to-budgets-stat')).toBe('$15.00');
+    expect(stat(el, 'net-stat')).toBe('$40.00');
+    expect(stat(el, 'net-after-allocations-stat')).toBe('$25.00');
+  });
+
+  it('does not count an allocation as income or expense', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [makeTransaction({ type: 'allocation', amount: 2000, budgetId: 'b1' })],
+    });
+    const el = mount();
+    expect(stat(el, 'income-stat')).toBe('$0.00');
+    expect(stat(el, 'onetime-expense-stat')).toBe('$0.00');
+    expect(stat(el, 'recurring-expense-stat')).toBe('$0.00');
+  });
+
   it('does not let a budget contribution inflate the regular income tile', () => {
     appStore.setState({
       budgets: [makeBudget({ id: 'b1' })],

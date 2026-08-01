@@ -48,6 +48,10 @@
   color: var(--color-expense);
 }
 
+.amount.allocation {
+  color: var(--color-primary);
+}
+
 .actions {
   display: flex;
   gap: var(--space-1);

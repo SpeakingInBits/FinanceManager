@@ -12,6 +12,7 @@ export class TransactionForm extends HTMLElement {
   private editing: Transaction | null = null;
   private type: TransactionType = 'expense';
   private categoryId: string | null = null;
+  private budgetId: string | null = null;
   private recurrence: Transaction['recurrence'] = null;
   private amountCents = 0;
   private note = '';
@@ -27,6 +28,7 @@ export class TransactionForm extends HTMLElement {
     this.editing = value;
     this.type = value?.type ?? 'expense';
     this.categoryId = value?.categoryId ?? null;
+    this.budgetId = value?.budgetId ?? null;
     this.recurrence = value?.recurrence ?? null;
     this.amountCents = value?.amount ?? 0;
     this.note = value?.note ?? '';
@@ -53,11 +55,16 @@ export class TransactionForm extends HTMLElement {
       : [];
     const budgetOptions = budgets;
 
+    // Allocations move money from logged income into a budget: no category, budget required.
+    // Income is plain earnings: no budget link. Expenses may optionally spend from a budget.
+    const isAllocation = this.type === 'allocation';
+
     root.innerHTML = `
       <form>
         <div class="type-toggle" role="group" aria-label="Transaction type">
           <button type="button" data-type="expense" aria-pressed="${this.type === 'expense'}">Expense</button>
           <button type="button" data-type="income" aria-pressed="${this.type === 'income'}">Income</button>
+          <button type="button" data-type="allocation" aria-pressed="${isAllocation}">Fill budget</button>
         </div>
 
         <div class="field">
@@ -84,6 +91,10 @@ export class TransactionForm extends HTMLElement {
             <label for="date">${this.recurrence ? 'Start date' : 'Date'}</label>
             <input type="date" id="date" value="${this.dateValue}" required />
           </div>
+          ${
+            isAllocation
+              ? ''
+              : `
           <div class="field">
             <label for="category">Category</label>
             <select id="category">
@@ -95,11 +106,12 @@ export class TransactionForm extends HTMLElement {
                 )
                 .join('')}
             </select>
-          </div>
+          </div>`
+          }
         </div>
 
         ${
-          subcategoryOptions.length > 0
+          !isAllocation && subcategoryOptions.length > 0
             ? `
         <div class="field">
           <label for="subcategory">Subcategory</label>
@@ -116,18 +128,23 @@ export class TransactionForm extends HTMLElement {
             : ''
         }
 
+        ${
+          this.type === 'income'
+            ? ''
+            : `
         <div class="field">
-          <label for="budget">Budget</label>
-          <select id="budget">
-            <option value="">None</option>
+          <label for="budget">${isAllocation ? 'Fill budget' : 'Budget'}</label>
+          <select id="budget" ${isAllocation ? 'required' : ''}>
+            <option value="">${isAllocation ? 'Select a budget' : 'None'}</option>
             ${budgetOptions
               .map(
                 (b) =>
-                  `<option value="${b.id}" ${b.id === t?.budgetId ? 'selected' : ''}>${b.name}</option>`,
+                  `<option value="${b.id}" ${b.id === this.budgetId ? 'selected' : ''}>${b.name}</option>`,
               )
               .join('')}
           </select>
-        </div>
+        </div>`
+        }
 
         <div class="field">
           <label for="note">Note</label>
@@ -148,9 +165,13 @@ export class TransactionForm extends HTMLElement {
       });
     });
 
-    root.querySelector<HTMLSelectElement>('#category')!.addEventListener('change', (e) => {
+    root.querySelector<HTMLSelectElement>('#category')?.addEventListener('change', (e) => {
       this.categoryId = (e.target as HTMLSelectElement).value || null;
       this.render();
+    });
+
+    root.querySelector<HTMLSelectElement>('#budget')?.addEventListener('change', (e) => {
+      this.budgetId = (e.target as HTMLSelectElement).value || null;
     });
 
     const recurrenceEl = root.querySelector<HTMLSelectElement>('#recurrence')!;
@@ -183,10 +204,15 @@ export class TransactionForm extends HTMLElement {
       e.preventDefault();
       const amountEl = root.querySelector<HTMLElement & { valueCents: number }>('#amount')!;
       const dateEl = root.querySelector<HTMLInputElement>('#date')!;
-      const categoryEl = root.querySelector<HTMLSelectElement>('#category')!;
+      const categoryEl = root.querySelector<HTMLSelectElement>('#category');
       const subcategoryEl = root.querySelector<HTMLSelectElement>('#subcategory');
-      const budgetEl = root.querySelector<HTMLSelectElement>('#budget')!;
+      const budgetEl = root.querySelector<HTMLSelectElement>('#budget');
       const noteEl = root.querySelector<HTMLTextAreaElement>('#note')!;
+
+      const budgetId = budgetEl?.value || null;
+      // A fill has to land somewhere; the `required` attribute covers browsers, this covers
+      // programmatic submits.
+      if (this.type === 'allocation' && budgetId === null) return;
 
       this.dispatchEvent(
         new CustomEvent<TransactionSubmitDetail>(AppEvents.TransactionSubmit, {
@@ -196,9 +222,9 @@ export class TransactionForm extends HTMLElement {
               type: this.type,
               amount: amountEl.valueCents,
               date: dateInputToMillis(dateEl.value),
-              categoryId: categoryEl.value || null,
+              categoryId: categoryEl?.value || null,
               subcategoryId: subcategoryEl?.value || null,
-              budgetId: budgetEl.value || null,
+              budgetId: this.type === 'income' ? null : budgetId,
               note: noteEl.value.trim(),
               recurrence: this.recurrence,
             },

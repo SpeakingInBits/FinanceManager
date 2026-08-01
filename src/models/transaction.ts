@@ -1,4 +1,10 @@
-export type TransactionType = 'income' | 'expense';
+/**
+ * 'income' — money earned (a paycheck); never linked to a budget.
+ * 'expense' — money spent; deducts from a budget when linked to one.
+ * 'allocation' — a budget fill: moves money from already-logged income into a budget.
+ *   Always linked to a budget and carries no category.
+ */
+export type TransactionType = 'income' | 'expense' | 'allocation';
 
 export type RecurrenceFrequency = 'monthly' | 'yearly';
 

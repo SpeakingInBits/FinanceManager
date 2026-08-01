@@ -57,9 +57,10 @@ export interface SankeyGraph {
 const BUDGET_NODE_COLOR = '#2f6fed';
 
 /**
- * Builds a cash-flow graph: income sources -> Total -> expense categories for transactions with
- * no linked budget, and income sources -> budget -> expense categories for transactions linked
- * to a budget (contributions flow in, spending flows out of the budget's balance).
+ * Builds a cash-flow graph: income sources -> Total, Total -> budgets for allocation (fill)
+ * transactions, budget -> expense categories for budget-linked spending, and Total -> expense
+ * categories for the rest. Pre-v7 budget-linked income still links its source straight to the
+ * budget so unmigrated data keeps rendering.
  */
 export function buildSankeyGraph(
   transactions: Transaction[],
@@ -74,6 +75,7 @@ export function buildSankeyGraph(
 
   const incomeToTotal = new Map<string, number>();
   const incomeToBudget = new Map<string, Map<string, number>>();
+  const totalToBudget = new Map<string, number>();
   const totalToExpense = new Map<string, number>();
   const budgetToExpense = new Map<string, Map<string, number>>();
   const activeBudgetIds = new Set<string>();
@@ -82,7 +84,11 @@ export function buildSankeyGraph(
     const key = t.categoryId ?? 'uncategorized';
     const linkedBudget = t.budgetId ? budgetById.get(t.budgetId) : undefined;
 
-    if (t.type === 'income') {
+    if (t.type === 'allocation') {
+      if (!linkedBudget) continue;
+      activeBudgetIds.add(linkedBudget.id);
+      totalToBudget.set(linkedBudget.id, (totalToBudget.get(linkedBudget.id) ?? 0) + t.amount);
+    } else if (t.type === 'income') {
       if (linkedBudget) {
         activeBudgetIds.add(linkedBudget.id);
         const byBudget = incomeToBudget.get(key) ?? new Map<string, number>();
@@ -127,6 +133,11 @@ export function buildSankeyGraph(
       if (value > 0) {
         links.push({ source: incomeIndex.get(key)!, target: budgetOffset + budgetIndex.get(budgetId)!, value });
       }
+    }
+  }
+  for (const [budgetId, value] of totalToBudget) {
+    if (value > 0) {
+      links.push({ source: totalIndex, target: budgetOffset + budgetIndex.get(budgetId)!, value });
     }
   }
   for (const [key, value] of totalToExpense) {

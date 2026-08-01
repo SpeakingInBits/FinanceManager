@@ -8,7 +8,7 @@ Finance Tracker is designed for users who want full control over their financial
 ### Key Features
 * **Transaction Tracking**: Easily log income and expenses.
 * **Custom Categories**: Create and manage your own hierarchy of categories and subcategories.
-* **Smart Budgeting**: Set monthly or one-time budgets and track progress visually. Expense against general income or your budgets.
+* **Smart Budgeting**: Set monthly or one-time budgets and track progress visually. Log your paycheck as income, fill budgets from that income with "Fill budget" transactions, and expense against general income or your budgets.
 * **Data Visualization**: Beautifully rendered Pie Charts and Sankey Diagrams (via D3.js) to visualize your cash flow.
 * **PWA Support**: Install it on your mobile device or desktop as a standalone app.
 
