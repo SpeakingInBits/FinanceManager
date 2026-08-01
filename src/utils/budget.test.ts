@@ -46,7 +46,31 @@ describe('computeBudgetStats', () => {
     vi.useRealTimers();
   });
 
-  it('sums only income transactions linked to the budget within the current month as contributed', () => {
+  it('sums allocation (fill) transactions linked to the budget within the current month as contributed', () => {
+    const budget = makeBudget();
+    const transactions = [
+      makeTransaction({ id: 't1', type: 'allocation', amount: 1500 }),
+      makeTransaction({ id: 't2', type: 'allocation', amount: 2500 }),
+      makeTransaction({ id: 't3', type: 'allocation', amount: 5000, budgetId: 'other-budget' }),
+      makeTransaction({ id: 't4', type: 'expense', amount: 5000 }),
+      makeTransaction({ id: 't5', type: 'allocation', amount: 5000, date: new Date(2026, 5, 10).getTime() }),
+    ];
+    const stats = computeBudgetStats(budget, transactions);
+    expect(stats.contributed).toBe(4000);
+  });
+
+  it('computes lifetime balance from allocations minus expenses', () => {
+    const budget = makeBudget();
+    const transactions = [
+      makeTransaction({ type: 'allocation', amount: 2000, date: new Date(2020, 0, 1).getTime() }),
+      makeTransaction({ type: 'allocation', amount: 500 }),
+      makeTransaction({ type: 'expense', amount: 700 }),
+    ];
+    const stats = computeBudgetStats(budget, transactions);
+    expect(stats.balance).toBe(1800);
+  });
+
+  it('still counts pre-migration budget-linked income as contributions', () => {
     const budget = makeBudget();
     const transactions = [
       makeTransaction({ id: 't1', amount: 1000 }),

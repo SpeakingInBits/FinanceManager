@@ -4,10 +4,10 @@ import type { Transaction } from '@/models/transaction';
 
 export interface BudgetStats {
   periodType: BudgetPeriodType;
-  /** Lifetime balance: all-time income linked to this budget minus all-time expense linked to it. Can be negative. */
+  /** Lifetime balance: all-time fills (allocations) into this budget minus all-time expense linked to it. Can be negative. */
   balance: number;
   overdrawn: boolean;
-  /** Income linked to this budget within the current contribution window. */
+  /** Money allocated into this budget within the current contribution window. */
   contributed: number;
   target: number;
   /**
@@ -23,30 +23,33 @@ export interface BudgetStats {
 }
 
 /**
- * Computes a budget's all-time spendable balance (income minus expense, unbounded) and its
- * progress toward `targetAmount`. Monthly budgets progress by income contributed within the
+ * Computes a budget's all-time spendable balance (fills minus expense, unbounded) and its
+ * progress toward `targetAmount`. Monthly budgets progress by the amount allocated within the
  * current calendar month; one-time budgets progress by their lifetime balance across
  * [startDate, endDate ?? Infinity], reflecting funds available to spend down.
+ *
+ * Fills are 'allocation' transactions; budget-linked 'income' records (the pre-v7 way of funding
+ * a budget) are counted the same way for resilience against unmigrated data.
  */
 export function computeBudgetStats(budget: Budget, transactions: Transaction[]): BudgetStats {
   const [windowStart, windowEnd] =
     budget.periodType === 'monthly' ? monthBounds(Date.now()) : [budget.startDate, budget.endDate ?? Infinity];
 
-  let income = 0;
+  let funded = 0;
   let expense = 0;
   let contributed = 0;
 
   for (const t of transactions) {
     if (t.budgetId !== budget.id) continue;
-    if (t.type === 'income') {
-      income += t.amount;
-      if (t.date >= windowStart && t.date <= windowEnd) contributed += t.amount;
-    } else {
+    if (t.type === 'expense') {
       expense += t.amount;
+    } else {
+      funded += t.amount;
+      if (t.date >= windowStart && t.date <= windowEnd) contributed += t.amount;
     }
   }
 
-  const balance = income - expense;
+  const balance = funded - expense;
   const target = budget.targetAmount;
   const progress = budget.periodType === 'one-time' ? balance : contributed;
   const progressPercent = target > 0 ? Math.max(0, Math.min(progress / target, 999)) : 0;

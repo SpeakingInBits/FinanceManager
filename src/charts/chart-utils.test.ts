@@ -142,6 +142,35 @@ describe('buildSankeyGraph', () => {
     ]);
   });
 
+  it('routes allocation (fill) transactions from Total into the budget node', () => {
+    const categories = [
+      makeCategory({ id: 'salary', name: 'Salary' }),
+      makeCategory({ id: 'flights', name: 'Flights' }),
+    ];
+    const budgets = [makeBudget({ id: 'vacation', name: 'Vacation' })];
+    const transactions = [
+      makeTransaction({ type: 'income', categoryId: 'salary', amount: 5000 }),
+      makeTransaction({ type: 'allocation', categoryId: null, amount: 3000, budgetId: 'vacation' }),
+      makeTransaction({ type: 'expense', categoryId: 'flights', amount: 1000, budgetId: 'vacation' }),
+    ];
+    const graph = buildSankeyGraph(transactions, categories, budgets);
+    expect(graph.nodes.map((n) => n.name)).toEqual(['Salary', 'Vacation', 'Total', 'Flights']);
+    expect(graph.links).toEqual([
+      // Salary -> Total (full paycheck), Total -> Vacation (the fill), Vacation -> Flights (spend).
+      { source: 0, target: 2, value: 5000 },
+      { source: 2, target: 1, value: 3000 },
+      { source: 1, target: 3, value: 1000 },
+    ]);
+  });
+
+  it('ignores an allocation whose budget no longer exists', () => {
+    const transactions = [
+      makeTransaction({ type: 'allocation', categoryId: null, amount: 3000, budgetId: 'ghost' }),
+    ];
+    const graph = buildSankeyGraph(transactions, [], []);
+    expect(graph.links).toEqual([]);
+  });
+
   it('excludes budgets with no linked transactions from the node list', () => {
     const budgets = [makeBudget({ id: 'unused', name: 'Unused' })];
     const graph = buildSankeyGraph([], [], budgets);

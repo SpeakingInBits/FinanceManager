@@ -4,6 +4,7 @@ import { appStore } from '@/state/app-store';
 import { AppEvents, type TransactionDeleteDetail } from '@/state/events';
 import { occurrencesForMonth, type MonthlyOccurrence } from '@/utils/recurrence';
 import type { Category } from '@/models/category';
+import type { Budget } from '@/models/budget';
 
 export class TransactionList extends HTMLElement {
   private unsubscribe?: () => void;
@@ -44,17 +45,18 @@ export class TransactionList extends HTMLElement {
   }
 
   private renderFromState(): void {
-    const { transactions, categories, selectedMonth } = appStore.getState();
-    this.render(occurrencesForMonth(transactions, selectedMonth), categories);
+    const { transactions, categories, budgets, selectedMonth } = appStore.getState();
+    this.render(occurrencesForMonth(transactions, selectedMonth), categories, budgets);
   }
 
-  private render(occurrences: MonthlyOccurrence[], categories: Category[]): void {
+  private render(occurrences: MonthlyOccurrence[], categories: Category[], budgets: Budget[]): void {
     const root = this.shadowRoot!;
     if (occurrences.length === 0) {
       root.innerHTML = `<empty-state message="No transactions this month" icon="list"></empty-state>`;
       return;
     }
     const byId = new Map(categories.map((c) => [c.id, c]));
+    const budgetById = new Map(budgets.map((b) => [b.id, b]));
     root.innerHTML = `<div class="list"></div>`;
     const list = root.querySelector('.list')!;
 
@@ -71,9 +73,39 @@ export class TransactionList extends HTMLElement {
       header.className = 'group-title';
       header.textContent = title;
       section.appendChild(header);
-      this.appendCategoryGroups(section, groupOccurrences, byId);
+      // Allocations have no category — they list under their own "Budget fills" group.
+      this.appendCategoryGroups(
+        section,
+        groupOccurrences.filter((o) => o.transaction.type !== 'allocation'),
+        byId,
+        budgetById,
+      );
+      this.appendAllocationGroup(
+        section,
+        groupOccurrences.filter((o) => o.transaction.type === 'allocation'),
+        byId,
+        budgetById,
+      );
       list.appendChild(section);
     }
+  }
+
+  /** Renders allocation occurrences under a single "Budget fills" header, styled like a category group. */
+  private appendAllocationGroup(
+    container: HTMLElement,
+    occurrences: MonthlyOccurrence[],
+    byId: Map<string, Category>,
+    budgetById: Map<string, Budget>,
+  ): void {
+    if (occurrences.length === 0) return;
+    const group = document.createElement('div');
+    group.className = 'category-group';
+    const header = document.createElement('h3');
+    header.className = 'category-title';
+    header.innerHTML = `<span class="swatch" style="background:${ALLOCATION_COLOR}"></span>Budget fills`;
+    group.appendChild(header);
+    this.appendItems(group, occurrences, byId, budgetById);
+    container.appendChild(group);
   }
 
   /** Groups occurrences by top-level category (Uncategorized last), each with its own header. */
@@ -81,6 +113,7 @@ export class TransactionList extends HTMLElement {
     container: HTMLElement,
     occurrences: MonthlyOccurrence[],
     byId: Map<string, Category>,
+    budgetById: Map<string, Budget>,
   ): void {
     const byCategory = new Map<string, MonthlyOccurrence[]>();
     for (const o of occurrences) {
@@ -100,7 +133,7 @@ export class TransactionList extends HTMLElement {
       header.className = 'category-title';
       header.innerHTML = `<span class="swatch" style="background:${category?.color ?? UNCATEGORIZED_COLOR}"></span>${categoryName(key, byId)}`;
       group.appendChild(header);
-      this.appendSubcategoryGroups(group, categoryOccurrences, byId);
+      this.appendSubcategoryGroups(group, categoryOccurrences, byId, budgetById);
       container.appendChild(group);
     }
   }
@@ -114,6 +147,7 @@ export class TransactionList extends HTMLElement {
     container: HTMLElement,
     occurrences: MonthlyOccurrence[],
     byId: Map<string, Category>,
+    budgetById: Map<string, Budget>,
   ): void {
     const bySubcategory = new Map<string, MonthlyOccurrence[]>();
     for (const o of occurrences) {
@@ -128,7 +162,7 @@ export class TransactionList extends HTMLElement {
 
     for (const [key, subOccurrences] of entries) {
       if (key === NO_SUBCATEGORY && !hasRealSubcategory) {
-        this.appendItems(container, subOccurrences, byId);
+        this.appendItems(container, subOccurrences, byId, budgetById);
         continue;
       }
       const group = document.createElement('div');
@@ -137,7 +171,7 @@ export class TransactionList extends HTMLElement {
       header.className = 'subcategory-title';
       header.textContent = key === NO_SUBCATEGORY ? 'Other' : (byId.get(key)?.name ?? 'Unknown');
       group.appendChild(header);
-      this.appendItems(group, subOccurrences, byId);
+      this.appendItems(group, subOccurrences, byId, budgetById);
       container.appendChild(group);
     }
   }
@@ -147,6 +181,7 @@ export class TransactionList extends HTMLElement {
     container: HTMLElement,
     occurrences: MonthlyOccurrence[],
     byId: Map<string, Category>,
+    budgetById: Map<string, Budget>,
   ): void {
     const sorted = [...occurrences].sort((a, b) => b.displayDate - a.displayDate);
     for (const occurrence of sorted) {
@@ -155,11 +190,14 @@ export class TransactionList extends HTMLElement {
         occurrence: MonthlyOccurrence;
         categoryName: string;
         categoryColor: string;
+        budgetName: string;
       };
       const category = t.categoryId ? byId.get(t.categoryId) : undefined;
+      const isAllocation = t.type === 'allocation';
       item.occurrence = occurrence;
       item.categoryName = category?.name ?? 'Uncategorized';
-      item.categoryColor = category?.color ?? UNCATEGORIZED_COLOR;
+      item.categoryColor = isAllocation ? ALLOCATION_COLOR : (category?.color ?? UNCATEGORIZED_COLOR);
+      item.budgetName = t.budgetId ? (budgetById.get(t.budgetId)?.name ?? '') : '';
       container.appendChild(item);
     }
   }
@@ -168,6 +206,8 @@ export class TransactionList extends HTMLElement {
 const UNCATEGORIZED = '__uncategorized__';
 const NO_SUBCATEGORY = '__none__';
 const UNCATEGORIZED_COLOR = '#9aa0a6';
+/** Matches the budget node color used in the sankey chart. */
+const ALLOCATION_COLOR = '#2f6fed';
 
 function categoryName(key: string, byId: Map<string, Category>): string {
   if (key === UNCATEGORIZED) return 'Uncategorized';

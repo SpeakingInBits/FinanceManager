@@ -6,6 +6,7 @@ import { AppEvents, type TransactionSubmitDetail } from '@/state/events';
 import { millisToDateInput } from '@/utils/date';
 import type { TransactionForm } from './transaction-form';
 import type { Transaction } from '@/models/transaction';
+import type { Budget } from '@/models/budget';
 
 function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
   return {
@@ -20,6 +21,22 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     recurrence: null,
     createdAt: 0,
     updatedAt: 0,
+    ...overrides,
+  };
+}
+
+function makeBudget(overrides: Partial<Budget> = {}): Budget {
+  return {
+    id: 'b1',
+    name: 'Vacation',
+    description: '',
+    targetAmount: 10000,
+    periodType: 'monthly',
+    startDate: 0,
+    endDate: null,
+    categoryId: null,
+    subcategoryId: null,
+    createdAt: 0,
     ...overrides,
   };
 }
@@ -217,6 +234,69 @@ describe('transaction-form', () => {
     noteEl.dispatchEvent(new Event('input', { bubbles: true }));
     const detail = submit(form);
     expect(detail.input.note).toBe('padded note');
+  });
+
+  it('hides the category field and requires a budget in Fill budget mode', () => {
+    appStore.setState({
+      categories: [{ id: 'travel', name: 'Travel', parentId: null, color: '#000', createdAt: 0 }],
+      budgets: [makeBudget()],
+    });
+    const form = mount();
+    form.transaction = null;
+    form.shadowRoot!.querySelector<HTMLButtonElement>('[data-type="allocation"]')!.click();
+    expect(form.shadowRoot!.querySelector('#category')).toBeNull();
+    const budgetSelect = form.shadowRoot!.querySelector<HTMLSelectElement>('#budget')!;
+    expect(budgetSelect.required).toBe(true);
+  });
+
+  it('submits an allocation with the chosen budget and no category', () => {
+    appStore.setState({ budgets: [makeBudget()] });
+    const form = mount();
+    form.transaction = null;
+    form.shadowRoot!.querySelector<HTMLButtonElement>('[data-type="allocation"]')!.click();
+    setAmount(form, 2500);
+    const budgetSelect = form.shadowRoot!.querySelector<HTMLSelectElement>('#budget')!;
+    budgetSelect.value = 'b1';
+    budgetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    const detail = submit(form);
+    expect(detail.input).toMatchObject({
+      type: 'allocation',
+      amount: 2500,
+      budgetId: 'b1',
+      categoryId: null,
+      subcategoryId: null,
+    });
+  });
+
+  it('does not submit an allocation without a budget selected', () => {
+    const form = mount();
+    form.transaction = null;
+    form.shadowRoot!.querySelector<HTMLButtonElement>('[data-type="allocation"]')!.click();
+    let submitted = false;
+    form.addEventListener(AppEvents.TransactionSubmit, () => {
+      submitted = true;
+    });
+    // Dispatch submit directly to bypass browser constraint validation, exercising the guard.
+    form.shadowRoot!.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(submitted).toBe(false);
+  });
+
+  it('hides the budget field for income and submits budgetId: null', () => {
+    const form = mount();
+    form.transaction = null;
+    form.shadowRoot!.querySelector<HTMLButtonElement>('[data-type="income"]')!.click();
+    expect(form.shadowRoot!.querySelector('#budget')).toBeNull();
+    const detail = submit(form);
+    expect(detail.input).toMatchObject({ type: 'income', budgetId: null });
+  });
+
+  it('populates the budget select when editing an allocation', () => {
+    appStore.setState({ budgets: [makeBudget()] });
+    const form = mount();
+    form.transaction = makeTransaction({ type: 'allocation', budgetId: 'b1', categoryId: null });
+    const root = form.shadowRoot!;
+    expect(root.querySelector('[data-type="allocation"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(root.querySelector<HTMLSelectElement>('#budget')!.value).toBe('b1');
   });
 
   it('dispatches form-cancel when the cancel button is clicked', () => {

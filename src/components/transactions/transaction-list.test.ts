@@ -191,6 +191,38 @@ describe('transaction-list grouping', () => {
     expect(el.shadowRoot!.querySelectorAll('transaction-list-item')).toHaveLength(1);
   });
 
+  it('groups allocation (fill) transactions under a Budget fills header labeled with the budget', () => {
+    appStore.setState({
+      budgets: [
+        {
+          id: 'b1',
+          name: 'Vacation',
+          description: '',
+          targetAmount: 10000,
+          periodType: 'monthly',
+          startDate: 0,
+          endDate: null,
+          categoryId: null,
+          subcategoryId: null,
+          createdAt: 0,
+        },
+      ],
+    });
+    const el = setup(
+      [
+        makeTransaction({ id: 'a', categoryId: 'food' }),
+        makeTransaction({ id: 'fill', type: 'allocation', categoryId: null, budgetId: 'b1' }),
+      ],
+      categories,
+    );
+    expect(titles(el, '.category-title')).toEqual(['Food', 'Budget fills']);
+    const items = [...el.shadowRoot!.querySelectorAll('transaction-list-item')];
+    const fillItem = items.find((i) => i.shadowRoot!.textContent!.includes('Vacation'))!;
+    expect(fillItem.shadowRoot!.querySelector('.meta')!.textContent).toContain('Fill: Vacation');
+    expect(fillItem.shadowRoot!.querySelector('.amount')!.textContent).toContain('→');
+    appStore.setState({ budgets: [] });
+  });
+
   it('places each transaction under the correct recurrence + category + subcategory path', () => {
     const el = setup(
       [
