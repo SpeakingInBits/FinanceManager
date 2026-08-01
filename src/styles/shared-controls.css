@@ -18,6 +18,11 @@
   border: 1px solid transparent;
 }
 
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .btn-secondary {
   background: var(--color-surface);
   color: var(--color-text);

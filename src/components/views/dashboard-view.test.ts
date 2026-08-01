@@ -8,10 +8,11 @@ import '@/components/budgets/budget-progress-bar';
 import '@/components/budgets/budget-card';
 import '@/components/budgets/budget-list';
 import '@/components/budgets/budget-form';
+import '@/components/budgets/allocate-funds-form';
 import '@/charts/pie-chart';
 import './dashboard-view';
 import { appStore } from '@/state/app-store';
-import { AppEvents } from '@/state/events';
+import { AppEvents, type TransactionSubmitDetail } from '@/state/events';
 import { startOfMonth } from '@/utils/date';
 import type { Transaction } from '@/models/transaction';
 import type { Budget } from '@/models/budget';
@@ -272,6 +273,81 @@ describe('dashboard-view stat tiles', () => {
     const el = mount();
     expect(stat(el, 'onetime-expense-stat')).toBe('$0.00');
     expect(stat(el, 'recurring-expense-stat')).toBe('$0.00');
+  });
+});
+
+describe('dashboard-view allocate remaining funds', () => {
+  function allocateBtn(el: HTMLElement): HTMLButtonElement {
+    return el.querySelector('.allocate-remaining-btn') as HTMLButtonElement;
+  }
+
+  it('disables the button when there are no unallocated funds', () => {
+    const el = mount();
+    expect(allocateBtn(el).disabled).toBe(true);
+  });
+
+  it('disables the button when allocations already consume all income', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ id: 'a', type: 'income', amount: 5000 }),
+        makeTransaction({ id: 'b', type: 'allocation', amount: 5000, budgetId: 'b1' }),
+      ],
+    });
+    const el = mount();
+    expect(allocateBtn(el).disabled).toBe(true);
+  });
+
+  it('enables the button when the month has unallocated income', () => {
+    appStore.setState({
+      transactions: [makeTransaction({ id: 'a', type: 'income', amount: 5000 })],
+    });
+    const el = mount();
+    expect(allocateBtn(el).disabled).toBe(false);
+  });
+
+  it('opens the modal seeded with the Net after allocations amount', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ id: 'a', type: 'income', amount: 5000 }),
+        makeTransaction({ id: 'b', type: 'expense', amount: 1000 }),
+        makeTransaction({ id: 'c', type: 'allocation', amount: 1500, budgetId: 'b1' }),
+      ],
+    });
+    const el = mount();
+    allocateBtn(el).click();
+    const dialog = el.querySelector('.allocate-modal dialog') as HTMLDialogElement;
+    expect(dialog.open).toBe(true);
+    const form = el.querySelector('allocate-funds-form')!;
+    expect(form.shadowRoot!.querySelector('.remaining')!.textContent).toBe(
+      'Left to allocate: $25.00',
+    );
+  });
+
+  it('creates allocation transactions for the entered amounts and closes the modal', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [makeTransaction({ id: 'a', type: 'income', amount: 5000 })],
+    });
+    const el = mount();
+    const details: TransactionSubmitDetail[] = [];
+    el.addEventListener(AppEvents.TransactionSubmit, (e) => {
+      details.push((e as CustomEvent<TransactionSubmitDetail>).detail);
+    });
+    allocateBtn(el).click();
+    const form = el.querySelector('allocate-funds-form')!;
+    const input = form.shadowRoot!.querySelector('amount-input') as HTMLElement & {
+      valueCents: number;
+    };
+    input.valueCents = 3000;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    form.shadowRoot!.querySelector('form')!.requestSubmit();
+
+    expect(details).toHaveLength(1);
+    expect(details[0]!.input).toMatchObject({ type: 'allocation', amount: 3000, budgetId: 'b1' });
+    const dialog = el.querySelector('.allocate-modal dialog') as HTMLDialogElement;
+    expect(dialog.open).toBe(false);
   });
 });
 
