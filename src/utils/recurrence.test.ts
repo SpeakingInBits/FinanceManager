@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { monthlyEquivalentAmount, occurrencesForMonth } from './recurrence';
+import { monthlyEquivalentAmount, occurrencesForMonth, occurrencesThroughMonth } from './recurrence';
 import type { Transaction } from '@/models/transaction';
 
 function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
@@ -130,5 +130,51 @@ describe('occurrencesForMonth', () => {
     });
     const result = occurrencesForMonth([oneOff, recurring], july);
     expect(result.map((o) => o.transaction.id).sort()).toEqual(['a', 'b']);
+  });
+});
+
+describe('occurrencesThroughMonth', () => {
+  const july = new Date(2026, 6, 1).getTime();
+
+  it('returns a one-off as its single occurrence regardless of date', () => {
+    const t = makeTransaction({ date: new Date(2026, 11, 20).getTime() });
+    const result = occurrencesThroughMonth(t, july);
+    expect(result).toHaveLength(1);
+    expect(result[0]!.displayDate).toBe(t.date);
+    expect(result[0]!.displayAmount).toBe(1000);
+  });
+
+  it('yields one occurrence per month from the anchor month through the given month', () => {
+    const t = makeTransaction({ recurrence: 'monthly', date: new Date(2026, 3, 15).getTime() });
+    const result = occurrencesThroughMonth(t, july);
+    // April, May, June, July
+    expect(result).toHaveLength(4);
+    expect(result.map((o) => new Date(o.displayDate).getMonth())).toEqual([3, 4, 5, 6]);
+    expect(result.every((o) => o.displayAmount === 1000)).toBe(true);
+  });
+
+  it('yields nothing for a recurring transaction anchored after the given month', () => {
+    const t = makeTransaction({ recurrence: 'monthly', date: new Date(2026, 7, 1).getTime() });
+    expect(occurrencesThroughMonth(t, july)).toHaveLength(0);
+  });
+
+  it('uses monthly-equivalent amounts for yearly recurrence', () => {
+    const t = makeTransaction({
+      recurrence: 'yearly',
+      amount: 120000,
+      date: new Date(2026, 5, 10).getTime(),
+    });
+    const result = occurrencesThroughMonth(t, july);
+    expect(result).toHaveLength(2);
+    expect(result.every((o) => o.displayAmount === 10000)).toBe(true);
+  });
+
+  it('clamps projected days to the length of each month', () => {
+    const t = makeTransaction({ recurrence: 'monthly', date: new Date(2026, 0, 31).getTime() });
+    const feb = new Date(2026, 1, 1).getTime();
+    const result = occurrencesThroughMonth(t, feb);
+    expect(result).toHaveLength(2);
+    // February 2026 (non-leap) only has 28 days.
+    expect(new Date(result[1]!.displayDate).getDate()).toBe(28);
   });
 });

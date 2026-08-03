@@ -1,13 +1,18 @@
-import { monthBounds } from './date';
+import { monthBounds, startOfMonth } from './date';
+import { occurrencesThroughMonth } from './recurrence';
 import type { Budget, BudgetPeriodType } from '@/models/budget';
 import type { Transaction } from '@/models/transaction';
 
 export interface BudgetStats {
   periodType: BudgetPeriodType;
-  /** Lifetime balance: all-time fills (allocations) into this budget minus all-time expense linked to it. Can be negative. */
+  /**
+   * Lifetime balance: fills (allocations) into this budget minus expense linked to it, with
+   * recurring transactions counted once per elapsed month through the reference month. Can be
+   * negative.
+   */
   balance: number;
   overdrawn: boolean;
-  /** Money allocated into this budget within the current contribution window. */
+  /** Money allocated into this budget within the contribution window of the reference month. */
   contributed: number;
   target: number;
   /**
@@ -23,17 +28,27 @@ export interface BudgetStats {
 }
 
 /**
- * Computes a budget's all-time spendable balance (fills minus expense, unbounded) and its
- * progress toward `targetAmount`. Monthly budgets progress by the amount allocated within the
- * current calendar month; one-time budgets progress by their lifetime balance across
- * [startDate, endDate ?? Infinity], reflecting funds available to spend down.
+ * Computes a budget's spendable balance (fills minus expense) and its progress toward
+ * `targetAmount`, as of `referenceMonth` (start-of-month millis; defaults to the current month).
+ * Monthly budgets progress by the amount allocated within that month; one-time budgets progress
+ * by their lifetime balance across [startDate, endDate ?? Infinity], reflecting funds available
+ * to spend down.
+ *
+ * Recurring transactions count one monthly-equivalent occurrence per month from their anchor
+ * month through `referenceMonth`, matching how the dashboard and transaction list project them.
  *
  * Fills are 'allocation' transactions; budget-linked 'income' records (the pre-v7 way of funding
  * a budget) are counted the same way for resilience against unmigrated data.
  */
-export function computeBudgetStats(budget: Budget, transactions: Transaction[]): BudgetStats {
+export function computeBudgetStats(
+  budget: Budget,
+  transactions: Transaction[],
+  referenceMonth: number = startOfMonth(Date.now()),
+): BudgetStats {
   const [windowStart, windowEnd] =
-    budget.periodType === 'monthly' ? monthBounds(Date.now()) : [budget.startDate, budget.endDate ?? Infinity];
+    budget.periodType === 'monthly'
+      ? monthBounds(referenceMonth)
+      : [budget.startDate, budget.endDate ?? Infinity];
 
   let funded = 0;
   let expense = 0;
@@ -41,11 +56,13 @@ export function computeBudgetStats(budget: Budget, transactions: Transaction[]):
 
   for (const t of transactions) {
     if (t.budgetId !== budget.id) continue;
-    if (t.type === 'expense') {
-      expense += t.amount;
-    } else {
-      funded += t.amount;
-      if (t.date >= windowStart && t.date <= windowEnd) contributed += t.amount;
+    for (const o of occurrencesThroughMonth(t, referenceMonth)) {
+      if (t.type === 'expense') {
+        expense += o.displayAmount;
+      } else {
+        funded += o.displayAmount;
+        if (o.displayDate >= windowStart && o.displayDate <= windowEnd) contributed += o.displayAmount;
+      }
     }
   }
 

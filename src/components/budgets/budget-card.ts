@@ -1,6 +1,7 @@
 import css from './budget-card.css?inline';
 import { adoptStyles } from '@/utils/adopt-styles';
 import { computeBudgetStats } from '@/utils/budget';
+import { startOfMonth } from '@/utils/date';
 import type { Budget } from '@/models/budget';
 import type { Transaction } from '@/models/transaction';
 import type { BudgetProgressBar } from './budget-progress-bar';
@@ -9,6 +10,7 @@ export class BudgetCard extends HTMLElement {
   private _budget!: Budget;
   private _categoryName = 'General';
   private _transactions: Transaction[] = [];
+  private _referenceMonth = startOfMonth(Date.now());
 
   constructor() {
     super();
@@ -28,6 +30,12 @@ export class BudgetCard extends HTMLElement {
 
   set transactions(value: Transaction[]) {
     this._transactions = value;
+    this.render();
+  }
+
+  /** Start-of-month millis the budget's stats are computed against (the viewed month). */
+  set referenceMonth(value: number) {
+    this._referenceMonth = value;
     this.render();
   }
 
@@ -57,7 +65,7 @@ export class BudgetCard extends HTMLElement {
     `;
 
     const bar = root.querySelector('budget-progress-bar') as BudgetProgressBar;
-    bar.stats = computeBudgetStats(b, this._transactions);
+    bar.stats = computeBudgetStats(b, this._transactions, this._referenceMonth);
 
     root.querySelector('.edit-btn')!.addEventListener('click', () => {
       this.dispatchEvent(

@@ -195,4 +195,77 @@ describe('computeBudgetStats', () => {
     const transactions = [makeTransaction({ date: new Date(2030, 0, 1).getTime(), amount: 100 })];
     expect(computeBudgetStats(budget, transactions).contributed).toBe(100);
   });
+
+  it('counts a recurring monthly fill from an earlier month as contributed this month', () => {
+    const budget = makeBudget();
+    const transactions = [
+      makeTransaction({ type: 'allocation', amount: 2000, recurrence: 'monthly', date: new Date(2026, 3, 15).getTime() }),
+    ];
+    // System time is July 2026; the April-anchored fill recurs into July.
+    const stats = computeBudgetStats(budget, transactions);
+    expect(stats.contributed).toBe(2000);
+  });
+
+  it('counts a recurring fill once per elapsed month in the lifetime balance', () => {
+    const budget = makeBudget();
+    const transactions = [
+      makeTransaction({ type: 'allocation', amount: 2000, recurrence: 'monthly', date: new Date(2026, 3, 15).getTime() }),
+    ];
+    // April through July = 4 occurrences.
+    expect(computeBudgetStats(budget, transactions).balance).toBe(8000);
+  });
+
+  it('counts yearly recurring fills at their monthly-equivalent amount', () => {
+    const budget = makeBudget();
+    const transactions = [
+      makeTransaction({ type: 'allocation', amount: 120000, recurrence: 'yearly', date: new Date(2026, 5, 1).getTime() }),
+    ];
+    const stats = computeBudgetStats(budget, transactions);
+    // 120000 / 12 per month, June and July elapsed.
+    expect(stats.contributed).toBe(10000);
+    expect(stats.balance).toBe(20000);
+  });
+
+  it('subtracts a recurring budget-linked expense once per elapsed month', () => {
+    const budget = makeBudget();
+    const transactions = [
+      makeTransaction({ id: 'fill', type: 'allocation', amount: 10000, date: new Date(2026, 6, 1).getTime() }),
+      makeTransaction({ id: 'bill', type: 'expense', amount: 1000, recurrence: 'monthly', date: new Date(2026, 4, 5).getTime() }),
+    ];
+    // Bill hits in May, June, and July.
+    expect(computeBudgetStats(budget, transactions).balance).toBe(7000);
+  });
+
+  it('ignores recurring fills anchored after the reference month', () => {
+    const budget = makeBudget();
+    const transactions = [
+      makeTransaction({ type: 'allocation', amount: 2000, recurrence: 'monthly', date: new Date(2026, 8, 1).getTime() }),
+    ];
+    const stats = computeBudgetStats(budget, transactions);
+    expect(stats.contributed).toBe(0);
+    expect(stats.balance).toBe(0);
+  });
+
+  it('windows monthly contributions on an explicit reference month instead of today', () => {
+    const budget = makeBudget();
+    const june = new Date(2026, 5, 1).getTime();
+    const transactions = [
+      makeTransaction({ id: 'jun', type: 'allocation', amount: 3000, date: new Date(2026, 5, 10).getTime() }),
+      makeTransaction({ id: 'jul', type: 'allocation', amount: 4000, date: new Date(2026, 6, 10).getTime() }),
+    ];
+    const stats = computeBudgetStats(budget, transactions, june);
+    expect(stats.contributed).toBe(3000);
+  });
+
+  it('caps recurring occurrences at the explicit reference month for balance', () => {
+    const budget = makeBudget();
+    const may = new Date(2026, 4, 1).getTime();
+    const transactions = [
+      makeTransaction({ type: 'allocation', amount: 2000, recurrence: 'monthly', date: new Date(2026, 3, 15).getTime() }),
+    ];
+    // Viewing May: only April and May have occurred.
+    const stats = computeBudgetStats(budget, transactions, may);
+    expect(stats.balance).toBe(4000);
+    expect(stats.contributed).toBe(2000);
+  });
 });
