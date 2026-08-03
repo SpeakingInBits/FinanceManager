@@ -17,17 +17,22 @@ export class BudgetList extends HTMLElement {
 
   connectedCallback(): void {
     this.unsubscribe = appStore.subscribe((state) =>
-      this.render(state.budgets, state.categories, state.transactions),
+      this.render(state.budgets, state.categories, state.transactions, state.selectedMonth),
     );
     const state = appStore.getState();
-    this.render(state.budgets, state.categories, state.transactions);
+    this.render(state.budgets, state.categories, state.transactions, state.selectedMonth);
   }
 
   disconnectedCallback(): void {
     this.unsubscribe?.();
   }
 
-  private render(budgets: Budget[], categories: Category[], transactions: Transaction[]): void {
+  private render(
+    budgets: Budget[],
+    categories: Category[],
+    transactions: Transaction[],
+    selectedMonth: number,
+  ): void {
     const root = this.shadowRoot!;
     if (budgets.length === 0) {
       root.innerHTML = `<empty-state message="No budgets yet" icon="wallet"></empty-state>`;
@@ -43,6 +48,7 @@ export class BudgetList extends HTMLElement {
       const subcategoryName = b.subcategoryId ? byId.get(b.subcategoryId)?.name : undefined;
       card.categoryName = subcategoryName ? `${categoryName} · ${subcategoryName}` : categoryName;
       card.transactions = transactions;
+      card.referenceMonth = selectedMonth;
       list.appendChild(card);
     }
   }
