@@ -13,6 +13,7 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     budgetId: null,
     note: '',
     recurrence: null,
+    recurrenceEnd: null,
     createdAt: 0,
     updatedAt: 0,
     ...overrides,
@@ -121,6 +122,24 @@ describe('occurrencesForMonth', () => {
     expect(t.amount).toBe(120000);
   });
 
+  it('excludes a recurring transaction from months at or after its recurrenceEnd', () => {
+    const t = makeTransaction({
+      recurrence: 'monthly',
+      date: new Date(2026, 0, 15).getTime(),
+      recurrenceEnd: new Date(2026, 6, 1).getTime(), // no longer occurs from July on
+    });
+    expect(occurrencesForMonth([t], july)).toHaveLength(0);
+  });
+
+  it('includes a recurring transaction in the month just before its recurrenceEnd', () => {
+    const t = makeTransaction({
+      recurrence: 'monthly',
+      date: new Date(2026, 0, 15).getTime(),
+      recurrenceEnd: new Date(2026, 7, 1).getTime(), // no longer occurs from August on
+    });
+    expect(occurrencesForMonth([t], july)).toHaveLength(1);
+  });
+
   it('mixes one-off and recurring transactions in the same month', () => {
     const oneOff = makeTransaction({ id: 'a', date: new Date(2026, 6, 3).getTime() });
     const recurring = makeTransaction({
@@ -167,6 +186,17 @@ describe('occurrencesThroughMonth', () => {
     const result = occurrencesThroughMonth(t, july);
     expect(result).toHaveLength(2);
     expect(result.every((o) => o.displayAmount === 10000)).toBe(true);
+  });
+
+  it('stops yielding occurrences at the month before recurrenceEnd', () => {
+    const t = makeTransaction({
+      recurrence: 'monthly',
+      date: new Date(2026, 3, 15).getTime(),
+      recurrenceEnd: new Date(2026, 5, 1).getTime(), // last occurrence in May
+    });
+    const result = occurrencesThroughMonth(t, july);
+    // April, May
+    expect(result.map((o) => new Date(o.displayDate).getMonth())).toEqual([3, 4]);
   });
 
   it('clamps projected days to the length of each month', () => {

@@ -4,7 +4,7 @@ import type { Category } from '@/models/category';
 import type { Budget } from '@/models/budget';
 
 export const DB_NAME = 'finance-tracker-db';
-export const DB_VERSION = 7;
+export const DB_VERSION = 8;
 
 export interface FinanceDB extends DBSchema {
   transactions: {

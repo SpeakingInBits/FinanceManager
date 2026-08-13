@@ -263,6 +263,7 @@ describe('pie-chart slice colors', () => {
       budgetId: null,
       note: '',
       recurrence: null,
+      recurrenceEnd: null,
       createdAt: 0,
       updatedAt: 0,
     });

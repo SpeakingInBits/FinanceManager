@@ -13,7 +13,8 @@ export interface MonthlyOccurrence {
   displayAmount: number;
 }
 
-function projectDayIntoMonth(anchor: number, monthStart: number): number {
+/** Re-dates `anchor` into `monthStart`'s month, clamping the day-of-month to the month's length. */
+export function projectDayIntoMonth(anchor: number, monthStart: number): number {
   const anchorDate = new Date(anchor);
   const target = new Date(monthStart);
   const daysInMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
@@ -25,12 +26,14 @@ function projectDayIntoMonth(anchor: number, monthStart: number): number {
  * Expands a transaction into every occurrence realized up to and including `monthStart`'s month.
  * A one-off yields its single dated occurrence (wherever it falls, even past `monthStart`); a
  * recurring transaction yields one monthly-equivalent occurrence per month from its anchor month
- * through `monthStart` — none if it starts after `monthStart`.
+ * through `monthStart` — none if it starts after `monthStart`, and none in or after its
+ * `recurrenceEnd` month when set.
  */
 export function occurrencesThroughMonth(t: Transaction, monthStart: number): MonthlyOccurrence[] {
   if (!t.recurrence) return [{ transaction: t, displayDate: t.date, displayAmount: t.amount }];
   const displayAmount = monthlyEquivalentAmount(t.amount, t.recurrence);
-  const limit = startOfMonth(monthStart);
+  let limit = startOfMonth(monthStart);
+  if (t.recurrenceEnd !== null) limit = Math.min(limit, shiftMonth(t.recurrenceEnd, -1));
   const occurrences: MonthlyOccurrence[] = [];
   for (let m = startOfMonth(t.date); m <= limit; m = shiftMonth(m, 1)) {
     occurrences.push({ transaction: t, displayDate: projectDayIntoMonth(t.date, m), displayAmount });
@@ -40,7 +43,8 @@ export function occurrencesThroughMonth(t: Transaction, monthStart: number): Mon
 
 /**
  * Projects recurring transactions into `monthStart`'s month as monthly-equivalent occurrences
- * (starting the month they were created in), and includes one-off transactions dated within it.
+ * (starting the month they were created in and stopping before their `recurrenceEnd` month, when
+ * set), and includes one-off transactions dated within it.
  */
 export function occurrencesForMonth(transactions: Transaction[], monthStart: number): MonthlyOccurrence[] {
   const [rangeStart, rangeEnd] = monthBounds(monthStart);
@@ -53,6 +57,7 @@ export function occurrencesForMonth(transactions: Transaction[], monthStart: num
       continue;
     }
     if (startOfMonth(t.date) > monthStart) continue;
+    if (t.recurrenceEnd !== null && monthStart >= t.recurrenceEnd) continue;
     occurrences.push({
       transaction: t,
       displayDate: projectDayIntoMonth(t.date, monthStart),
