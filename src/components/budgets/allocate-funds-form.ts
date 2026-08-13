@@ -96,6 +96,7 @@ export class AllocateFundsForm extends HTMLElement {
                 budgetId: input.dataset.budgetId!,
                 note: '',
                 recurrence: null,
+                recurrenceEnd: null,
               },
             },
             bubbles: true,

@@ -21,6 +21,12 @@ export interface Transaction {
   note: string;
   /** null = one-off transaction. */
   recurrence: RecurrenceFrequency | null;
+  /**
+   * Start-of-month epoch millis of the first month this recurrence no longer occurs in
+   * (exclusive end); null = recurs indefinitely. Always null for one-offs. Set when an edit to a
+   * recurring transaction is carried forward as a new record so earlier months keep their history.
+   */
+  recurrenceEnd: number | null;
   createdAt: number;
   updatedAt: number;
 }

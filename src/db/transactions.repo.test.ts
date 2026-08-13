@@ -23,6 +23,7 @@ function newTransaction(overrides: Partial<NewTransaction> = {}): NewTransaction
     budgetId: null,
     note: '',
     recurrence: null,
+    recurrenceEnd: null,
     ...overrides,
   };
 }

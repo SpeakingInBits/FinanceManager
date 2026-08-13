@@ -30,6 +30,7 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     budgetId: 'b1',
     note: '',
     recurrence: null,
+    recurrenceEnd: null,
     createdAt: 0,
     updatedAt: 0,
     ...overrides,

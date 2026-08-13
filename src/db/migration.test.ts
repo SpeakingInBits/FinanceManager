@@ -3,7 +3,7 @@ import { openDB } from 'idb';
 import { describe, it, expect } from 'vitest';
 import { DB_NAME } from './schema';
 
-/** Seeds a v6 database (the pre-allocation schema) so getDb() runs only the v7 migration. */
+/** Seeds a v6 database (the pre-allocation schema) so getDb() runs the v7 and v8 migrations. */
 async function seedV6Db(): Promise<void> {
   const db = await openDB(DB_NAME, 6, {
     upgrade(database) {
@@ -40,8 +40,8 @@ async function seedV6Db(): Promise<void> {
   db.close();
 }
 
-describe('v7 migration', () => {
-  it('converts budget-linked income into category-less allocations, leaving other records alone', async () => {
+describe('v7+v8 migrations', () => {
+  it('converts budget-linked income into category-less allocations and backfills recurrenceEnd', async () => {
     await seedV6Db();
 
     // Imported after seeding so getDb() opens the existing v6 database and upgrades it.
@@ -55,12 +55,23 @@ describe('v7 migration', () => {
       categoryId: null,
       subcategoryId: null,
       amount: 1000,
+      recurrenceEnd: null,
     });
 
     const pay = await db.get('transactions', 'pay');
-    expect(pay).toMatchObject({ type: 'income', categoryId: 'salary', budgetId: null });
+    expect(pay).toMatchObject({
+      type: 'income',
+      categoryId: 'salary',
+      budgetId: null,
+      recurrenceEnd: null,
+    });
 
     const spend = await db.get('transactions', 'spend');
-    expect(spend).toMatchObject({ type: 'expense', categoryId: 'food', budgetId: 'b1' });
+    expect(spend).toMatchObject({
+      type: 'expense',
+      categoryId: 'food',
+      budgetId: 'b1',
+      recurrenceEnd: null,
+    });
   });
 });

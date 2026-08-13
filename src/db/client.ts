@@ -1,7 +1,7 @@
 import { openDB, type IDBPDatabase } from 'idb';
 import { DB_NAME, DB_VERSION, type FinanceDB } from './schema';
 import type { Budget, BudgetPeriodType } from '@/models/budget';
-import type { RecurrenceFrequency, TransactionType } from '@/models/transaction';
+import type { RecurrenceFrequency, Transaction, TransactionType } from '@/models/transaction';
 
 let dbPromise: Promise<IDBPDatabase<FinanceDB>> | null = null;
 
@@ -30,6 +30,9 @@ interface LegacyTransactionV2 {
   createdAt: number;
   updatedAt: number;
 }
+
+/** Pre-migration (DB_VERSION < 8) shape of a transactions record: no recurrenceEnd. */
+type LegacyTransactionV7 = Omit<Transaction, 'recurrenceEnd'>;
 
 /** Pre-migration (DB_VERSION < 4) shape of a categories record: still has a type field. */
 interface LegacyCategoryV3 {
@@ -118,14 +121,15 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
             const category = record.categoryId ? await categories.get(record.categoryId) : undefined;
             const recurrence = record.recurrence ?? null;
             if (category?.parentId) {
+              // recurrenceEnd is backfilled by the < 8 block below.
               await cursor.update({
                 ...record,
                 categoryId: category.parentId,
                 subcategoryId: category.id,
                 recurrence,
-              });
+              } as Transaction);
             } else if (!('subcategoryId' in record) || !('recurrence' in record)) {
-              await cursor.update({ ...record, subcategoryId: null, recurrence });
+              await cursor.update({ ...record, subcategoryId: null, recurrence } as Transaction);
             }
             cursor = await cursor.continue();
           }
@@ -187,6 +191,20 @@ export function getDb(): Promise<IDBPDatabase<FinanceDB>> {
                 categoryId: null,
                 subcategoryId: null,
               });
+            }
+            cursor = await cursor.continue();
+          }
+        }
+
+        if (oldVersion < 8) {
+          // Recurring transactions can now carry an exclusive end month (recurrenceEnd), used to
+          // preserve history when an amount changes; backfill the field on existing records.
+          const store = transaction.objectStore('transactions');
+          let cursor = await store.openCursor();
+          while (cursor) {
+            const record = cursor.value as unknown as LegacyTransactionV7;
+            if (!('recurrenceEnd' in record)) {
+              await cursor.update({ ...record, recurrenceEnd: null });
             }
             cursor = await cursor.continue();
           }

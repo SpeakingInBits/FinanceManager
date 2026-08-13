@@ -2,7 +2,7 @@ import css from './transaction-form.css?inline';
 import { adoptStyles } from '@/utils/adopt-styles';
 import { appStore } from '@/state/app-store';
 import { AppEvents, type TransactionSubmitDetail } from '@/state/events';
-import { millisToDateInput, dateInputToMillis } from '@/utils/date';
+import { millisToDateInput, dateInputToMillis, startOfMonth, formatMonthYear } from '@/utils/date';
 import { monthlyEquivalentAmount } from '@/utils/recurrence';
 import { formatCents } from '@/utils/currency';
 import type { Transaction, TransactionType } from '@/models/transaction';
@@ -47,8 +47,15 @@ export class TransactionForm extends HTMLElement {
 
   private render(): void {
     const root = this.shadowRoot!;
-    const { categories, budgets } = appStore.getState();
+    const { categories, budgets, selectedMonth } = appStore.getState();
     const t = this.editing;
+    // Editing the amount of a recurring transaction that already occurred in earlier months only
+    // applies from the viewed month on (the record is split to keep history); tell the user.
+    const amountSplits =
+      t !== null &&
+      t.recurrence !== null &&
+      startOfMonth(t.date) < selectedMonth &&
+      (t.recurrenceEnd === null || selectedMonth < t.recurrenceEnd);
     const categoryOptions = categories.filter((c) => c.parentId === null);
     const subcategoryOptions = this.categoryId
       ? categories.filter((c) => c.parentId === this.categoryId)
@@ -73,6 +80,11 @@ export class TransactionForm extends HTMLElement {
           ${
             this.recurrence === 'yearly'
               ? `<p class="hint">= ${formatCents(monthlyEquivalentAmount(this.amountCents, 'yearly'))}/month</p>`
+              : ''
+          }
+          ${
+            amountSplits
+              ? `<p class="hint">A new amount applies from ${formatMonthYear(selectedMonth)} on; earlier months keep ${formatCents(t.amount)}.</p>`
               : ''
           }
         </div>
@@ -227,6 +239,7 @@ export class TransactionForm extends HTMLElement {
               budgetId: this.type === 'income' ? null : budgetId,
               note: noteEl.value.trim(),
               recurrence: this.recurrence,
+              recurrenceEnd: this.recurrence === null ? null : (t?.recurrenceEnd ?? null),
             },
           },
           bubbles: true,
