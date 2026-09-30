@@ -22,6 +22,7 @@ import '@/components/budgets/budget-card';
 import '@/components/budgets/budget-list';
 import '@/components/budgets/budget-form';
 import '@/components/budgets/allocate-funds-form';
+import '@/components/budgets/withdraw-funds-form';
 
 import '@/charts/pie-chart';
 import '@/charts/sankey-chart';

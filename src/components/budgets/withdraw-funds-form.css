@@ -1,0 +1,30 @@
+:host {
+  display: block;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.summary {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.remaining {
+  font-weight: 600;
+  text-align: right;
+}
+
+.remaining.over {
+  color: var(--color-expense);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}

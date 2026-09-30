@@ -61,3 +61,48 @@ describe('sankey-chart budget node indicator', () => {
     expect(texts).not.toContain('Salary (budget)');
   });
 });
+
+describe('sankey-chart with budget withdrawals', () => {
+  it('renders a month where a budget is both filled and withdrawn from', async () => {
+    const { buildSankeyGraph } = await import('./chart-utils');
+    const budget = {
+      id: 'b1',
+      name: 'Vacation',
+      description: '',
+      targetAmount: 0,
+      periodType: 'monthly' as const,
+      startDate: 0,
+      endDate: null,
+      categoryId: null,
+      subcategoryId: null,
+      createdAt: 0,
+    };
+    const tx = {
+      categoryId: null,
+      subcategoryId: null,
+      budgetId: 'b1',
+      note: '',
+      date: 0,
+      recurrence: null,
+      recurrenceEnd: null,
+      createdAt: 0,
+      updatedAt: 0,
+    };
+    const el = mount();
+    const errors: unknown[] = [];
+    window.addEventListener('error', (e) => errors.push(e.error));
+    el.data = buildSankeyGraph(
+      [
+        { ...tx, id: 'f', type: 'allocation', amount: 3000 },
+        { ...tx, id: 'w', type: 'withdrawal', amount: 1000 },
+      ],
+      [],
+      [budget],
+    );
+    await nextFrame();
+    expect(errors).toEqual([]);
+    const texts = [...el.shadowRoot!.querySelectorAll('text')].map((t) => t.textContent);
+    expect(texts).toContain('From Vacation (budget)');
+    expect(texts).toContain('Vacation (budget)');
+  });
+});

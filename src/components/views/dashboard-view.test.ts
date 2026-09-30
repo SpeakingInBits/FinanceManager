@@ -410,6 +410,118 @@ describe('dashboard-view budgets section', () => {
   });
 });
 
+describe('dashboard-view budget withdrawals', () => {
+  function withdrawBtn(el: HTMLElement): HTMLButtonElement {
+    return el.querySelector('.withdraw-btn') as HTMLButtonElement;
+  }
+
+  it('counts a withdrawal as income, raising Net and Net after allocations', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ id: 'pay', type: 'income', amount: 5000 }),
+        makeTransaction({ id: 'rent', type: 'expense', amount: 1000 }),
+        makeTransaction({ id: 'fill', type: 'allocation', amount: 1500, budgetId: 'b1' }),
+        makeTransaction({ id: 'w', type: 'withdrawal', amount: 700, budgetId: 'b1' }),
+      ],
+    });
+    const el = mount();
+    expect(stat(el, 'income-stat')).toBe('$57.00');
+    expect(stat(el, 'net-stat')).toBe('$47.00');
+    // The fill is still counted as a contribution; the withdrawal isn't a negative one.
+    expect(stat(el, 'contrib-to-budgets-stat')).toBe('$15.00');
+    expect(stat(el, 'net-after-allocations-stat')).toBe('$32.00');
+  });
+
+  it('does not count a withdrawal as an expense', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [makeTransaction({ type: 'withdrawal', amount: 700, budgetId: 'b1' })],
+    });
+    const el = mount();
+    expect(stat(el, 'onetime-expense-stat')).toBe('$0.00');
+    expect(stat(el, 'recurring-expense-stat')).toBe('$0.00');
+  });
+
+  it('ignores withdrawals from other months', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({
+          type: 'withdrawal',
+          amount: 700,
+          budgetId: 'b1',
+          date: new Date(2026, 5, 10).getTime(),
+        }),
+      ],
+    });
+    const el = mount();
+    expect(stat(el, 'income-stat')).toBe('$0.00');
+  });
+
+  it('lowers the budget card balance by the amount withdrawn', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ id: 'fill', type: 'allocation', amount: 20000, budgetId: 'b1' }),
+        makeTransaction({ id: 'w', type: 'withdrawal', amount: 5000, budgetId: 'b1' }),
+      ],
+    });
+    const el = mount();
+    const card = el.querySelector('budget-list')!.shadowRoot!.querySelector('budget-card')!;
+    const bar = card.shadowRoot!.querySelector('budget-progress-bar')!;
+    expect(bar.shadowRoot!.textContent).toContain('$150.00');
+  });
+
+  it('disables Withdraw from Budget when no budget has funds', () => {
+    appStore.setState({ budgets: [makeBudget({ id: 'b1' })] });
+    const el = mount();
+    expect(withdrawBtn(el).disabled).toBe(true);
+    expect(withdrawBtn(el).title).toBe('No budget has funds to withdraw');
+  });
+
+  it('enables Withdraw from Budget once a budget has a positive balance', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [makeTransaction({ type: 'allocation', amount: 2000, budgetId: 'b1' })],
+    });
+    const el = mount();
+    expect(withdrawBtn(el).disabled).toBe(false);
+    expect(withdrawBtn(el).title).toBe('');
+  });
+
+  it('withdraws from a budget into income and closes the modal', () => {
+    appStore.setState({
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [makeTransaction({ type: 'allocation', amount: 2000, budgetId: 'b1' })],
+    });
+    const el = mount();
+    const details: TransactionSubmitDetail[] = [];
+    el.addEventListener(AppEvents.TransactionSubmit, (e) => {
+      details.push((e as CustomEvent<TransactionSubmitDetail>).detail);
+    });
+    withdrawBtn(el).click();
+    const dialog = el.querySelector('.withdraw-modal dialog') as HTMLDialogElement;
+    expect(dialog.open).toBe(true);
+
+    const form = el.querySelector('withdraw-funds-form')!;
+    const input = form.shadowRoot!.querySelector('#amount') as HTMLElement & { valueCents: number };
+    input.valueCents = 1200;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    form.shadowRoot!.querySelector('form')!.requestSubmit();
+
+    expect(details).toHaveLength(1);
+    // Viewing a past month dates the withdrawal on that month's first day.
+    expect(details[0]!.input).toMatchObject({
+      type: 'withdrawal',
+      amount: 1200,
+      budgetId: 'b1',
+      date: july,
+    });
+    expect(dialog.open).toBe(false);
+  });
+});
+
 describe('dashboard-view expense breakdown views', () => {
   const categories = [
     { id: 'bills', name: 'Bills', parentId: null, color: '#a142f4', createdAt: 0 },

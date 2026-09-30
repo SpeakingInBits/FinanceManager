@@ -322,3 +322,63 @@ describe('transaction-form', () => {
     expect(done).toBe(true);
   });
 });
+
+describe('transaction-form withdrawals', () => {
+  function withdrawMode(form: TransactionForm): void {
+    form.shadowRoot!.querySelector<HTMLButtonElement>('[data-type="withdrawal"]')!.click();
+  }
+
+  it('hides the category field and requires a budget in Withdraw mode', () => {
+    appStore.setState({
+      categories: [{ id: 'travel', name: 'Travel', parentId: null, color: '#000', createdAt: 0 }],
+      budgets: [makeBudget()],
+    });
+    const form = mount();
+    form.transaction = null;
+    withdrawMode(form);
+    const root = form.shadowRoot!;
+    expect(root.querySelector('#category')).toBeNull();
+    expect(root.querySelector('label[for="budget"]')!.textContent).toBe('Withdraw from');
+    expect(root.querySelector<HTMLSelectElement>('#budget')!.required).toBe(true);
+  });
+
+  it('submits a withdrawal from the chosen budget with no category', () => {
+    appStore.setState({ budgets: [makeBudget()] });
+    const form = mount();
+    form.transaction = null;
+    withdrawMode(form);
+    setAmount(form, 1200);
+    const budgetSelect = form.shadowRoot!.querySelector<HTMLSelectElement>('#budget')!;
+    budgetSelect.value = 'b1';
+    budgetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(submit(form).input).toMatchObject({
+      type: 'withdrawal',
+      amount: 1200,
+      budgetId: 'b1',
+      categoryId: null,
+      subcategoryId: null,
+    });
+  });
+
+  it('does not submit a withdrawal without a budget selected', () => {
+    const form = mount();
+    form.transaction = null;
+    withdrawMode(form);
+    let submitted = false;
+    form.addEventListener(AppEvents.TransactionSubmit, () => {
+      submitted = true;
+    });
+    form.shadowRoot!.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(submitted).toBe(false);
+  });
+
+  it('opens an existing withdrawal in Withdraw mode with its budget selected', () => {
+    appStore.setState({ budgets: [makeBudget()] });
+    const form = mount();
+    form.transaction = makeTransaction({ type: 'withdrawal', budgetId: 'b1', categoryId: null });
+    const root = form.shadowRoot!;
+    expect(root.querySelector('[data-type="withdrawal"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(root.querySelector<HTMLSelectElement>('#budget')!.value).toBe('b1');
+    expect(submit(form).input).toMatchObject({ type: 'withdrawal', budgetId: 'b1' });
+  });
+});

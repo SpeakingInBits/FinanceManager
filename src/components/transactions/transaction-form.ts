@@ -62,9 +62,12 @@ export class TransactionForm extends HTMLElement {
       : [];
     const budgetOptions = budgets;
 
-    // Allocations move money from logged income into a budget: no category, budget required.
-    // Income is plain earnings: no budget link. Expenses may optionally spend from a budget.
+    // Allocations move money from logged income into a budget, withdrawals move it back out: no
+    // category, budget required. Income is plain earnings: no budget link. Expenses may optionally
+    // spend from a budget.
     const isAllocation = this.type === 'allocation';
+    const isWithdrawal = this.type === 'withdrawal';
+    const isBudgetTransfer = isAllocation || isWithdrawal;
 
     root.innerHTML = `
       <form>
@@ -72,6 +75,7 @@ export class TransactionForm extends HTMLElement {
           <button type="button" data-type="expense" aria-pressed="${this.type === 'expense'}">Expense</button>
           <button type="button" data-type="income" aria-pressed="${this.type === 'income'}">Income</button>
           <button type="button" data-type="allocation" aria-pressed="${isAllocation}">Fill budget</button>
+          <button type="button" data-type="withdrawal" aria-pressed="${isWithdrawal}">Withdraw</button>
         </div>
 
         <div class="field">
@@ -104,7 +108,7 @@ export class TransactionForm extends HTMLElement {
             <input type="date" id="date" value="${this.dateValue}" required />
           </div>
           ${
-            isAllocation
+            isBudgetTransfer
               ? ''
               : `
           <div class="field">
@@ -123,7 +127,7 @@ export class TransactionForm extends HTMLElement {
         </div>
 
         ${
-          !isAllocation && subcategoryOptions.length > 0
+          !isBudgetTransfer && subcategoryOptions.length > 0
             ? `
         <div class="field">
           <label for="subcategory">Subcategory</label>
@@ -145,9 +149,9 @@ export class TransactionForm extends HTMLElement {
             ? ''
             : `
         <div class="field">
-          <label for="budget">${isAllocation ? 'Fill budget' : 'Budget'}</label>
-          <select id="budget" ${isAllocation ? 'required' : ''}>
-            <option value="">${isAllocation ? 'Select a budget' : 'None'}</option>
+          <label for="budget">${isAllocation ? 'Fill budget' : isWithdrawal ? 'Withdraw from' : 'Budget'}</label>
+          <select id="budget" ${isBudgetTransfer ? 'required' : ''}>
+            <option value="">${isBudgetTransfer ? 'Select a budget' : 'None'}</option>
             ${budgetOptions
               .map(
                 (b) =>
@@ -222,9 +226,9 @@ export class TransactionForm extends HTMLElement {
       const noteEl = root.querySelector<HTMLTextAreaElement>('#note')!;
 
       const budgetId = budgetEl?.value || null;
-      // A fill has to land somewhere; the `required` attribute covers browsers, this covers
-      // programmatic submits.
-      if (this.type === 'allocation' && budgetId === null) return;
+      // A fill has to land somewhere (and a withdrawal come from somewhere); the `required`
+      // attribute covers browsers, this covers programmatic submits.
+      if ((this.type === 'allocation' || this.type === 'withdrawal') && budgetId === null) return;
 
       this.dispatchEvent(
         new CustomEvent<TransactionSubmitDetail>(AppEvents.TransactionSubmit, {

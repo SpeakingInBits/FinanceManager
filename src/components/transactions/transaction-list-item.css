@@ -55,7 +55,8 @@
   white-space: nowrap;
 }
 
-.amount.income {
+.amount.income,
+.amount.withdrawal {
   color: var(--color-income);
 }
 

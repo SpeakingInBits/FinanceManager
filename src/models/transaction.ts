@@ -3,8 +3,11 @@
  * 'expense' — money spent; deducts from a budget when linked to one.
  * 'allocation' — a budget fill: moves money from already-logged income into a budget.
  *   Always linked to a budget and carries no category.
+ * 'withdrawal' — the reverse of a fill: moves money out of a budget's balance back into
+ *   general income, where it can be spent or allocated elsewhere. Always linked to a budget and
+ *   carries no category.
  */
-export type TransactionType = 'income' | 'expense' | 'allocation';
+export type TransactionType = 'income' | 'expense' | 'allocation' | 'withdrawal';
 
 export type RecurrenceFrequency = 'monthly' | 'yearly';
 

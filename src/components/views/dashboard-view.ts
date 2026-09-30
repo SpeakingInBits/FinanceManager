@@ -8,6 +8,10 @@ import type { PieChart } from '@/charts/pie-chart';
 import type { ModalDialog } from '@/components/shared/modal-dialog';
 import type { BudgetForm } from '@/components/budgets/budget-form';
 import type { AllocateFundsForm } from '@/components/budgets/allocate-funds-form';
+import {
+  withdrawableBudgets,
+  type WithdrawFundsForm,
+} from '@/components/budgets/withdraw-funds-form';
 
 type BreakdownView = 'combined' | 'split';
 
@@ -55,7 +59,10 @@ export class DashboardView extends HTMLElement {
       <section class="card">
         <div class="view-header">
           <h2>Budgets</h2>
-          <button type="button" class="btn allocate-remaining-btn">Allocate Remaining Funds</button>
+          <div class="budget-actions">
+            <button type="button" class="btn btn-secondary withdraw-btn">Withdraw from Budget</button>
+            <button type="button" class="btn allocate-remaining-btn">Allocate Remaining Funds</button>
+          </div>
         </div>
         <budget-list></budget-list>
       </section>
@@ -94,17 +101,23 @@ export class DashboardView extends HTMLElement {
       <modal-dialog heading="Allocate remaining funds" class="allocate-modal">
         <allocate-funds-form></allocate-funds-form>
       </modal-dialog>
+
+      <modal-dialog heading="Withdraw from budget" class="withdraw-modal">
+        <withdraw-funds-form></withdraw-funds-form>
+      </modal-dialog>
     `;
 
     this.querySelector('.allocate-remaining-btn')!.addEventListener('click', () => {
       const form = this.querySelector('allocate-funds-form') as AllocateFundsForm;
-      const { selectedMonth } = appStore.getState();
-      const now = Date.now();
-      // Date the fills inside the viewed month: today when viewing the current month, the
-      // month's first day otherwise, so they land in the totals the user is looking at.
-      form.allocationDate = startOfMonth(now) === selectedMonth ? now : selectedMonth;
+      form.allocationDate = this.dateInViewedMonth();
       form.availableFunds = this.remainingCents;
       (this.querySelector('.allocate-modal') as ModalDialog).open();
+    });
+
+    this.querySelector('.withdraw-btn')!.addEventListener('click', () => {
+      const form = this.querySelector('withdraw-funds-form') as WithdrawFundsForm;
+      form.withdrawalDate = this.dateInViewedMonth();
+      (this.querySelector('.withdraw-modal') as ModalDialog).open();
     });
 
     this.querySelectorAll<HTMLButtonElement>('.breakdown-toggle button').forEach((btn) => {
@@ -143,6 +156,16 @@ export class DashboardView extends HTMLElement {
     this.unsubscribe?.();
   }
 
+  /**
+   * Date for fills/withdrawals made from the dashboard: today when viewing the current month, the
+   * viewed month's first day otherwise, so they land in the totals the user is looking at.
+   */
+  private dateInViewedMonth(): number {
+    const { selectedMonth } = appStore.getState();
+    const now = Date.now();
+    return startOfMonth(now) === selectedMonth ? now : selectedMonth;
+  }
+
   /** Switches the Expense breakdown card between one combined pie and a recurring/one-time split. */
   private setBreakdownView(view: BreakdownView): void {
     this.querySelectorAll('.breakdown-toggle button').forEach((b) =>
@@ -155,6 +178,7 @@ export class DashboardView extends HTMLElement {
   private closeModals(): void {
     (this.querySelector('.budget-modal') as ModalDialog)?.close();
     (this.querySelector('.allocate-modal') as ModalDialog)?.close();
+    (this.querySelector('.withdraw-modal') as ModalDialog)?.close();
   }
 
   private update(): void {
@@ -171,10 +195,17 @@ export class DashboardView extends HTMLElement {
     // unbudgeted cash flow), so subtracting them from Net shows what's left over once this
     // month's budget funding is set aside.
     const allocations = inMonth
-      .filter((t) => t.budgetId !== null && t.type !== 'expense')
+      .filter((t) => t.budgetId !== null && (t.type === 'allocation' || t.type === 'income'))
+      .reduce((s, t) => s + t.amount, 0);
+    // Withdrawals move money out of a budget back into general income, so they count as income
+    // this month and raise the funds left to spend or allocate elsewhere.
+    const withdrawals = inMonth
+      .filter((t) => t.type === 'withdrawal')
       .reduce((s, t) => s + t.amount, 0);
 
-    const income = notBudgeted.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const income =
+      notBudgeted.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0) +
+      withdrawals;
     const expenses = notBudgeted.filter((t) => t.type === 'expense');
     // A recurring transaction carries a non-null `recurrence`; a one-off has `recurrence: null`.
     const recurringExpense = expenses
@@ -197,6 +228,11 @@ export class DashboardView extends HTMLElement {
     const allocateBtn = this.querySelector<HTMLButtonElement>('.allocate-remaining-btn')!;
     allocateBtn.disabled = this.remainingCents <= 0;
     allocateBtn.title = this.remainingCents <= 0 ? 'No unallocated funds this month' : '';
+
+    const withdrawBtn = this.querySelector<HTMLButtonElement>('.withdraw-btn')!;
+    const canWithdraw = withdrawableBudgets(selectedMonth).length > 0;
+    withdrawBtn.disabled = !canWithdraw;
+    withdrawBtn.title = canWithdraw ? '' : 'No budget has funds to withdraw';
 
     // Both views are kept current so toggling between them never shows stale data.
     const pie = this.querySelector('.expense-pie') as PieChart;

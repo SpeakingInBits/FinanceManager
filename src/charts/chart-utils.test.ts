@@ -325,3 +325,48 @@ describe('categoryBreakdownBySubcategory', () => {
     ]);
   });
 });
+
+describe('buildSankeyGraph withdrawals', () => {
+  it('adds a withdrawal as its own "From <budget>" source flowing into Total', () => {
+    const categories = [makeCategory({ id: 'salary', name: 'Salary' })];
+    const transactions = [
+      makeTransaction({ type: 'income', categoryId: 'salary', amount: 5000 }),
+      makeTransaction({ type: 'withdrawal', budgetId: 'b1', amount: 1500 }),
+    ];
+    const graph = buildSankeyGraph(transactions, categories, [makeBudget({ id: 'b1' })]);
+    expect(graph.nodes.map((n) => n.name)).toEqual(['Salary', 'From Vacation', 'Total']);
+    expect(graph.nodes[1]).toMatchObject({ isBudget: true });
+    expect(graph.links).toEqual([
+      { source: 0, target: 2, value: 5000 },
+      { source: 1, target: 2, value: 1500 },
+    ]);
+  });
+
+  it('keeps the graph acyclic when a budget is both filled and withdrawn from', () => {
+    const transactions = [
+      makeTransaction({ id: 'f', type: 'allocation', budgetId: 'b1', amount: 3000 }),
+      makeTransaction({ id: 'w', type: 'withdrawal', budgetId: 'b1', amount: 1000 }),
+    ];
+    const graph = buildSankeyGraph(transactions, [], [makeBudget({ id: 'b1' })]);
+    expect(graph.nodes.map((n) => n.name)).toEqual(['From Vacation', 'Vacation', 'Total']);
+    expect(graph.links).toEqual([
+      { source: 0, target: 2, value: 1000 },
+      { source: 2, target: 1, value: 3000 },
+    ]);
+    // Every link points strictly between distinct nodes with no path back to its source.
+    const targetsOf = (n: number) => graph.links.filter((l) => l.source === n).map((l) => l.target);
+    const reaches = (from: number, to: number, seen = new Set<number>()): boolean =>
+      targetsOf(from).some((t) => t === to || (!seen.has(t) && seen.add(t) && reaches(t, to, seen)));
+    graph.nodes.forEach((_, i) => expect(reaches(i, i)).toBe(false));
+  });
+
+  it('skips a withdrawal whose budget no longer exists', () => {
+    const graph = buildSankeyGraph(
+      [makeTransaction({ type: 'withdrawal', budgetId: 'gone', amount: 1000 })],
+      [],
+      [],
+    );
+    expect(graph.nodes.map((n) => n.name)).toEqual(['Total']);
+    expect(graph.links).toEqual([]);
+  });
+});

@@ -5,6 +5,7 @@ import { AppEvents, type TransactionDeleteDetail } from '@/state/events';
 import { occurrencesForMonth, type MonthlyOccurrence } from '@/utils/recurrence';
 import type { Category } from '@/models/category';
 import type { Budget } from '@/models/budget';
+import type { TransactionType } from '@/models/transaction';
 
 export class TransactionList extends HTMLElement {
   private unsubscribe?: () => void;
@@ -73,16 +74,24 @@ export class TransactionList extends HTMLElement {
       header.className = 'group-title';
       header.textContent = title;
       section.appendChild(header);
-      // Allocations have no category — they list under their own "Budget fills" group.
+      // Budget transfers have no category — fills and withdrawals each list under their own group.
       this.appendCategoryGroups(
         section,
-        groupOccurrences.filter((o) => o.transaction.type !== 'allocation'),
+        groupOccurrences.filter((o) => !isBudgetTransfer(o.transaction.type)),
         byId,
         budgetById,
       );
-      this.appendAllocationGroup(
+      this.appendBudgetTransferGroup(
         section,
+        'Budget fills',
         groupOccurrences.filter((o) => o.transaction.type === 'allocation'),
+        byId,
+        budgetById,
+      );
+      this.appendBudgetTransferGroup(
+        section,
+        'Budget withdrawals',
+        groupOccurrences.filter((o) => o.transaction.type === 'withdrawal'),
         byId,
         budgetById,
       );
@@ -90,9 +99,10 @@ export class TransactionList extends HTMLElement {
     }
   }
 
-  /** Renders allocation occurrences under a single "Budget fills" header, styled like a category group. */
-  private appendAllocationGroup(
+  /** Renders budget fill or withdrawal occurrences under a single header, styled like a category group. */
+  private appendBudgetTransferGroup(
     container: HTMLElement,
+    title: string,
     occurrences: MonthlyOccurrence[],
     byId: Map<string, Category>,
     budgetById: Map<string, Budget>,
@@ -102,7 +112,7 @@ export class TransactionList extends HTMLElement {
     group.className = 'category-group';
     const header = document.createElement('h3');
     header.className = 'category-title';
-    header.innerHTML = `<span class="swatch" style="background:${ALLOCATION_COLOR}"></span>Budget fills`;
+    header.innerHTML = `<span class="swatch" style="background:${ALLOCATION_COLOR}"></span>${title}`;
     group.appendChild(header);
     this.appendItems(group, occurrences, byId, budgetById);
     container.appendChild(group);
@@ -193,10 +203,11 @@ export class TransactionList extends HTMLElement {
         budgetName: string;
       };
       const category = t.categoryId ? byId.get(t.categoryId) : undefined;
-      const isAllocation = t.type === 'allocation';
       item.occurrence = occurrence;
       item.categoryName = category?.name ?? 'Uncategorized';
-      item.categoryColor = isAllocation ? ALLOCATION_COLOR : (category?.color ?? UNCATEGORIZED_COLOR);
+      item.categoryColor = isBudgetTransfer(t.type)
+        ? ALLOCATION_COLOR
+        : (category?.color ?? UNCATEGORIZED_COLOR);
       item.budgetName = t.budgetId ? (budgetById.get(t.budgetId)?.name ?? '') : '';
       container.appendChild(item);
     }
@@ -208,6 +219,11 @@ const NO_SUBCATEGORY = '__none__';
 const UNCATEGORIZED_COLOR = '#9aa0a6';
 /** Matches the budget node color used in the sankey chart. */
 const ALLOCATION_COLOR = '#2f6fed';
+
+/** Fills and withdrawals move money into or out of a budget and carry no category. */
+function isBudgetTransfer(type: TransactionType): boolean {
+  return type === 'allocation' || type === 'withdrawal';
+}
 
 function categoryName(key: string, byId: Map<string, Category>): string {
   if (key === UNCATEGORIZED) return 'Uncategorized';

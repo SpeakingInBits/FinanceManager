@@ -9,12 +9,19 @@ form {
 }
 
 .type-toggle {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-2);
 }
 
+/* Four types don't fit on one row in a phone-width modal; wrap them into a 2x2 grid. */
+@media (max-width: 480px) {
+  .type-toggle {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .type-toggle button {
-  flex: 1;
   min-height: var(--tap-target-min);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
