@@ -22,16 +22,23 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
   };
 }
 
-function mount(occurrence: MonthlyOccurrence, categoryName = 'Uncategorized', categoryColor = '#9aa0a6') {
+function mount(
+  occurrence: MonthlyOccurrence,
+  categoryName = 'Uncategorized',
+  categoryColor = '#9aa0a6',
+  budgetName = '',
+) {
   document.body.innerHTML = '';
   const el = document.createElement('transaction-list-item') as HTMLElement & {
     occurrence: MonthlyOccurrence;
     categoryName: string;
     categoryColor: string;
+    budgetName: string;
   };
   document.body.appendChild(el);
   el.categoryName = categoryName;
   el.categoryColor = categoryColor;
+  el.budgetName = budgetName;
   el.occurrence = occurrence;
   return el;
 }
@@ -131,5 +138,86 @@ describe('transaction-list-item', () => {
     });
     (el.shadowRoot!.querySelector('.delete-btn') as HTMLButtonElement).click();
     expect(detail).toEqual({ id: t.id });
+  });
+});
+
+describe('transaction-list-item budget badge', () => {
+  function badge(el: HTMLElement): HTMLElement | null {
+    return el.shadowRoot!.querySelector('.budget-badge');
+  }
+
+  it('shows a wallet badge naming the budget on an expense paid from a budget', () => {
+    const el = mount(
+      {
+        transaction: makeTransaction({ type: 'expense', budgetId: 'b1', note: 'Flights' }),
+        displayDate: Date.now(),
+        displayAmount: 1000,
+      },
+      'Travel',
+      '#9aa0a6',
+      'Vacation Fund',
+    );
+    const b = badge(el)!;
+    expect(b).toBeTruthy();
+    expect(b.querySelector('app-icon')!.getAttribute('name')).toBe('wallet');
+    expect(b.getAttribute('aria-label')).toBe('Paid from budget: Vacation Fund');
+    expect(b.getAttribute('title')).toBe('Paid from budget: Vacation Fund');
+    // The badge sits beside the note without becoming part of its text.
+    expect(el.shadowRoot!.querySelector('.note')!.textContent).toBe('Flights');
+  });
+
+  it('shows no badge on an expense not linked to a budget', () => {
+    const el = mount({
+      transaction: makeTransaction({ type: 'expense', budgetId: null }),
+      displayDate: Date.now(),
+      displayAmount: 1000,
+    });
+    expect(badge(el)).toBeNull();
+  });
+
+  it('shows no badge on income', () => {
+    const el = mount({
+      transaction: makeTransaction({ type: 'income' }),
+      displayDate: Date.now(),
+      displayAmount: 1000,
+    });
+    expect(badge(el)).toBeNull();
+  });
+
+  it('shows no badge on a budget fill, which moves money into a budget rather than spending it', () => {
+    const el = mount(
+      {
+        transaction: makeTransaction({ type: 'allocation', budgetId: 'b1' }),
+        displayDate: Date.now(),
+        displayAmount: 1000,
+      },
+      'Uncategorized',
+      '#2f6fed',
+      'Vacation Fund',
+    );
+    expect(badge(el)).toBeNull();
+  });
+
+  it('still flags the expense when its budget has since been deleted', () => {
+    const el = mount({
+      transaction: makeTransaction({ type: 'expense', budgetId: 'gone' }),
+      displayDate: Date.now(),
+      displayAmount: 1000,
+    });
+    expect(badge(el)!.getAttribute('aria-label')).toBe('Paid from budget: Deleted budget');
+  });
+
+  it('shows the badge on each projected occurrence of a recurring budget expense', () => {
+    const el = mount(
+      {
+        transaction: makeTransaction({ type: 'expense', budgetId: 'b1', recurrence: 'monthly' }),
+        displayDate: Date.now(),
+        displayAmount: 1000,
+      },
+      'Bills',
+      '#9aa0a6',
+      'Emergency Fund',
+    );
+    expect(badge(el)!.getAttribute('aria-label')).toBe('Paid from budget: Emergency Fund');
   });
 });

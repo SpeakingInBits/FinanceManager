@@ -22,11 +22,26 @@
   min-width: 0;
 }
 
+.info .headline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
 .info .note {
+  min-width: 0;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.budget-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
 }
 
 .info .meta {
