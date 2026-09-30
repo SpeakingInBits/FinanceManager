@@ -133,3 +133,35 @@ describe('transaction-list-item', () => {
     expect(detail).toEqual({ id: t.id });
   });
 });
+
+describe('transaction-list-item withdrawals', () => {
+  function mountWithdrawal(note = '') {
+    const el = document.createElement('transaction-list-item') as HTMLElement & {
+      occurrence: MonthlyOccurrence;
+      budgetName: string;
+    };
+    document.body.innerHTML = '';
+    document.body.appendChild(el);
+    el.budgetName = 'Vacation Fund';
+    el.occurrence = {
+      transaction: makeTransaction({ type: 'withdrawal', budgetId: 'b1', note }),
+      displayDate: new Date(2026, 6, 10).getTime(),
+      displayAmount: 2500,
+    };
+    return el;
+  }
+
+  it('renders a withdrawal as money coming in, labeled with its budget', () => {
+    const el = mountWithdrawal();
+    const amount = el.shadowRoot!.querySelector('.amount')!;
+    expect(amount.textContent).toBe('+$25.00');
+    expect(amount.classList.contains('withdrawal')).toBe(true);
+    expect(el.shadowRoot!.querySelector('.note')!.textContent).toBe('Vacation Fund');
+    expect(el.shadowRoot!.querySelector('.meta')!.textContent).toContain('Withdrawal: Vacation Fund');
+  });
+
+  it('prefers the note over the budget name', () => {
+    const el = mountWithdrawal('Covering rent');
+    expect(el.shadowRoot!.querySelector('.note')!.textContent).toBe('Covering rent');
+  });
+});

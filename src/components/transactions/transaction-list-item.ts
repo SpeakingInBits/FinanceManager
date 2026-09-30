@@ -46,11 +46,18 @@ export class TransactionListItem extends HTMLElement {
     if (!this._occurrence) return;
     const { transaction: t, displayDate, displayAmount } = this._occurrence;
     // Allocations move money into a budget rather than in/out of the ledger, so they read as a
-    // transfer (→) labeled with the target budget instead of a category.
+    // transfer (→) labeled with the target budget instead of a category. Withdrawals move money
+    // back out of a budget into income (+), labeled with the budget they came from.
     const isAllocation = t.type === 'allocation';
-    const sign = isAllocation ? '→' : t.type === 'income' ? '+' : '-';
-    const label = isAllocation ? this._budgetName || 'Budget' : this._categoryName;
-    const meta = isAllocation ? `Fill: ${this._budgetName || 'Budget'}` : this._categoryName;
+    const isWithdrawal = t.type === 'withdrawal';
+    const budgetName = this._budgetName || 'Budget';
+    const sign = isAllocation ? '→' : t.type === 'income' || isWithdrawal ? '+' : '-';
+    const label = isAllocation || isWithdrawal ? budgetName : this._categoryName;
+    const meta = isAllocation
+      ? `Fill: ${budgetName}`
+      : isWithdrawal
+        ? `Withdrawal: ${budgetName}`
+        : this._categoryName;
     const recurrenceMeta = t.recurrence
       ? ` · ${RECURRENCE_LABEL[t.recurrence]} (${formatCents(t.amount)}/${t.recurrence === 'yearly' ? 'yr' : 'mo'})`
       : '';

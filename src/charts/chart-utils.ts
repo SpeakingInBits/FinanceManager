@@ -60,7 +60,10 @@ const BUDGET_NODE_COLOR = '#2f6fed';
  * Builds a cash-flow graph: income sources -> Total, Total -> budgets for allocation (fill)
  * transactions, budget -> expense categories for budget-linked spending, and Total -> expense
  * categories for the rest. Pre-v7 budget-linked income still links its source straight to the
- * budget so unmigrated data keeps rendering.
+ * budget so unmigrated data keeps rendering. Withdrawals (money moved from a budget back into
+ * income) enter as their own "From <budget>" source nodes flowing into Total — not as a link out
+ * of the budget's pass-through node, which would form a Total -> budget -> Total cycle whenever
+ * the same budget was also filled.
  */
 export function buildSankeyGraph(
   transactions: Transaction[],
@@ -78,13 +81,17 @@ export function buildSankeyGraph(
   const totalToBudget = new Map<string, number>();
   const totalToExpense = new Map<string, number>();
   const budgetToExpense = new Map<string, Map<string, number>>();
+  const withdrawalToTotal = new Map<string, number>();
   const activeBudgetIds = new Set<string>();
 
   for (const t of transactions) {
     const key = t.categoryId ?? 'uncategorized';
     const linkedBudget = t.budgetId ? budgetById.get(t.budgetId) : undefined;
 
-    if (t.type === 'allocation') {
+    if (t.type === 'withdrawal') {
+      if (!linkedBudget) continue;
+      withdrawalToTotal.set(linkedBudget.id, (withdrawalToTotal.get(linkedBudget.id) ?? 0) + t.amount);
+    } else if (t.type === 'allocation') {
       if (!linkedBudget) continue;
       activeBudgetIds.add(linkedBudget.id);
       totalToBudget.set(linkedBudget.id, (totalToBudget.get(linkedBudget.id) ?? 0) + t.amount);
@@ -111,13 +118,16 @@ export function buildSankeyGraph(
 
   const activeBudgets = budgets.filter((b) => activeBudgetIds.has(b.id));
   const budgetIndex = new Map(activeBudgets.map((b, i) => [b.id, i]));
+  const withdrawnBudgets = budgets.filter((b) => (withdrawalToTotal.get(b.id) ?? 0) > 0);
 
-  const budgetOffset = income.length;
-  const totalIndex = income.length + activeBudgets.length;
+  const withdrawalOffset = income.length;
+  const budgetOffset = withdrawalOffset + withdrawnBudgets.length;
+  const totalIndex = budgetOffset + activeBudgets.length;
   const expenseOffset = totalIndex + 1;
 
   const nodes: SankeyNodeDatum[] = [
     ...income.map((s) => ({ name: s.categoryName, color: s.color })),
+    ...withdrawnBudgets.map((b) => ({ name: `From ${b.name}`, color: BUDGET_NODE_COLOR, isBudget: true })),
     ...activeBudgets.map((b) => ({ name: b.name, color: BUDGET_NODE_COLOR, isBudget: true })),
     { name: 'Total', color: '#9aa0a6' },
     ...expense.map((s) => ({ name: s.categoryName, color: s.color })),
@@ -135,6 +145,9 @@ export function buildSankeyGraph(
       }
     }
   }
+  withdrawnBudgets.forEach((b, i) => {
+    links.push({ source: withdrawalOffset + i, target: totalIndex, value: withdrawalToTotal.get(b.id)! });
+  });
   for (const [budgetId, value] of totalToBudget) {
     if (value > 0) {
       links.push({ source: totalIndex, target: budgetOffset + budgetIndex.get(budgetId)!, value });

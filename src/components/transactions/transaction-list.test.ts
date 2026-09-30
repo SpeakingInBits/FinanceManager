@@ -241,3 +241,40 @@ describe('transaction-list grouping', () => {
     expect(oneTime.querySelector('.category-title')!.textContent).toContain('Food');
   });
 });
+
+describe('transaction-list budget withdrawals', () => {
+  it('lists withdrawals under their own Budget withdrawals group, apart from fills', () => {
+    appStore.setState({
+      budgets: [
+        {
+          id: 'b1',
+          name: 'Vacation Fund',
+          description: '',
+          targetAmount: 0,
+          periodType: 'monthly',
+          startDate: 0,
+          endDate: null,
+          categoryId: null,
+          subcategoryId: null,
+          createdAt: 0,
+        },
+      ],
+    });
+    const el = setup([
+      makeTransaction({ id: 'f', type: 'allocation', budgetId: 'b1', note: 'Top up' }),
+      makeTransaction({ id: 'w', type: 'withdrawal', budgetId: 'b1', note: 'Cash out' }),
+      makeTransaction({ id: 'e', note: 'Groceries' }),
+    ]);
+    const groups = [...el.shadowRoot!.querySelectorAll('.category-group')].map((g) => ({
+      title: g.querySelector('.category-title')!.textContent,
+      notes: [...g.querySelectorAll('transaction-list-item')].map(
+        (i) => i.shadowRoot!.querySelector('.note')!.textContent,
+      ),
+    }));
+    expect(groups).toEqual([
+      { title: 'Uncategorized', notes: ['Groceries'] },
+      { title: 'Budget fills', notes: ['Top up'] },
+      { title: 'Budget withdrawals', notes: ['Cash out'] },
+    ]);
+  });
+});

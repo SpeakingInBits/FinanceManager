@@ -270,3 +270,50 @@ describe('computeBudgetStats', () => {
     expect(stats.contributed).toBe(2000);
   });
 });
+
+describe('computeBudgetStats withdrawals', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 15));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('lowers the balance by money withdrawn back to income', () => {
+    const stats = computeBudgetStats(makeBudget(), [
+      makeTransaction({ id: 'f', type: 'allocation', amount: 5000 }),
+      makeTransaction({ id: 'w', type: 'withdrawal', amount: 2000 }),
+    ]);
+    expect(stats.balance).toBe(3000);
+    expect(stats.overdrawn).toBe(false);
+  });
+
+  it('does not count a withdrawal as money contributed this month', () => {
+    const stats = computeBudgetStats(makeBudget({ targetAmount: 5000 }), [
+      makeTransaction({ id: 'f', type: 'allocation', amount: 5000 }),
+      makeTransaction({ id: 'w', type: 'withdrawal', amount: 2000 }),
+    ]);
+    expect(stats.contributed).toBe(5000);
+    expect(stats.progressComplete).toBe(true);
+  });
+
+  it('draws down a one-time budget\'s progress, which tracks the money on hand', () => {
+    const stats = computeBudgetStats(makeBudget({ periodType: 'one-time', targetAmount: 10000 }), [
+      makeTransaction({ id: 'f', type: 'allocation', amount: 10000 }),
+      makeTransaction({ id: 'w', type: 'withdrawal', amount: 4000 }),
+    ]);
+    expect(stats.progress).toBe(6000);
+    expect(stats.progressPercent).toBeCloseTo(0.6);
+    expect(stats.progressComplete).toBe(false);
+  });
+
+  it('ignores withdrawals from other budgets', () => {
+    const stats = computeBudgetStats(makeBudget(), [
+      makeTransaction({ id: 'f', type: 'allocation', amount: 5000 }),
+      makeTransaction({ id: 'w', type: 'withdrawal', amount: 2000, budgetId: 'other' }),
+    ]);
+    expect(stats.balance).toBe(5000);
+  });
+});

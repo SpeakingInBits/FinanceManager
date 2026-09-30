@@ -6,7 +6,7 @@ import type { Transaction } from '@/models/transaction';
 export interface BudgetStats {
   periodType: BudgetPeriodType;
   /**
-   * Lifetime balance: fills (allocations) into this budget minus expense linked to it, with
+   * Lifetime balance: fills (allocations) into this budget minus expense and withdrawals, with
    * recurring transactions counted once per elapsed month through the reference month. Can be
    * negative.
    */
@@ -38,7 +38,9 @@ export interface BudgetStats {
  * month through `referenceMonth`, matching how the dashboard and transaction list project them.
  *
  * Fills are 'allocation' transactions; budget-linked 'income' records (the pre-v7 way of funding
- * a budget) are counted the same way for resilience against unmigrated data.
+ * a budget) are counted the same way for resilience against unmigrated data. Withdrawals move
+ * money back out to general income: like expense, they lower the balance but leave `contributed`
+ * (money put in this window) untouched.
  */
 export function computeBudgetStats(
   budget: Budget,
@@ -51,14 +53,15 @@ export function computeBudgetStats(
       : [budget.startDate, budget.endDate ?? Infinity];
 
   let funded = 0;
-  let expense = 0;
+  /** Money leaving the budget: expense paid from it plus withdrawals back to income. */
+  let drawn = 0;
   let contributed = 0;
 
   for (const t of transactions) {
     if (t.budgetId !== budget.id) continue;
     for (const o of occurrencesThroughMonth(t, referenceMonth)) {
-      if (t.type === 'expense') {
-        expense += o.displayAmount;
+      if (t.type === 'expense' || t.type === 'withdrawal') {
+        drawn += o.displayAmount;
       } else {
         funded += o.displayAmount;
         if (o.displayDate >= windowStart && o.displayDate <= windowEnd) contributed += o.displayAmount;
@@ -66,7 +69,7 @@ export function computeBudgetStats(
     }
   }
 
-  const balance = funded - expense;
+  const balance = funded - drawn;
   const target = budget.targetAmount;
   const progress = budget.periodType === 'one-time' ? balance : contributed;
   const progressPercent = target > 0 ? Math.max(0, Math.min(progress / target, 999)) : 0;
