@@ -47,5 +47,10 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/**/*.test.ts'],
     setupFiles: ['src/test/setup.ts'],
+    // CSS imports are stubbed to '' in tests by default; keep the real content for stylesheets
+    // whose rules are asserted directly (see src/components/shared/form-row-layout.test.ts).
+    css: {
+      include: [/\/(transaction|budget)-form\.css/],
+    },
   },
 });
