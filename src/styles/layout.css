@@ -49,6 +49,30 @@ app-shell {
   height: 320px;
 }
 
+.split-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.split-breakdown[hidden] {
+  display: none;
+}
+
+.split-breakdown-part h3 {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+}
+
+.split-total {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .segmented {
   display: inline-flex;
   border: 1px solid var(--color-border);
