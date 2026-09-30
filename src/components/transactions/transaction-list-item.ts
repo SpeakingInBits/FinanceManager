@@ -61,11 +61,21 @@ export class TransactionListItem extends HTMLElement {
     const recurrenceMeta = t.recurrence
       ? ` · ${RECURRENCE_LABEL[t.recurrence]} (${formatCents(t.amount)}/${t.recurrence === 'yearly' ? 'yr' : 'mo'})`
       : '';
+    // Expenses paid out of a budget draw down that budget's balance rather than general income;
+    // flag them with a small wallet badge so they're distinguishable at a glance.
+    const budgetLabel = `Paid from budget: ${this._budgetName || 'Deleted budget'}`;
+    const budgetBadge =
+      t.type === 'expense' && t.budgetId !== null
+        ? `<span class="budget-badge" role="img" aria-label="${budgetLabel}" title="${budgetLabel}"><app-icon name="wallet"></app-icon></span>`
+        : '';
     this.shadowRoot!.innerHTML = `
       <div class="row">
         <span class="swatch" style="background:${this._categoryColor}"></span>
         <div class="info">
-          <div class="note">${t.note || label}</div>
+          <div class="headline">
+            <span class="note">${t.note || label}</span>
+            ${budgetBadge}
+          </div>
           <div class="meta">${meta} · ${formatDate(displayDate)}${recurrenceMeta}</div>
         </div>
         <span class="amount ${t.type}">${sign}${formatCents(displayAmount)}</span>

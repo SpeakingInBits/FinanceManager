@@ -13,6 +13,8 @@ import {
   type WithdrawFundsForm,
 } from '@/components/budgets/withdraw-funds-form';
 
+type BreakdownView = 'combined' | 'split';
+
 export class DashboardView extends HTMLElement {
   private unsubscribe?: () => void;
   /** This month's Net after allocations — the pool "Allocate Remaining Funds" can draw from. */
@@ -66,9 +68,29 @@ export class DashboardView extends HTMLElement {
       </section>
 
       <section class="card">
-        <h2>Expense breakdown</h2>
-        <div class="chart-card">
-          <pie-chart></pie-chart>
+        <div class="view-header">
+          <h2>Expense breakdown</h2>
+          <div class="segmented breakdown-toggle" role="group" aria-label="Expense breakdown view">
+            <button type="button" data-view="combined" aria-pressed="true">Combined</button>
+            <button type="button" data-view="split" aria-pressed="false">Split</button>
+          </div>
+        </div>
+        <div class="chart-card combined-breakdown">
+          <pie-chart class="expense-pie"></pie-chart>
+        </div>
+        <div class="split-breakdown" hidden>
+          <div class="split-breakdown-part">
+            <h3>Recurring <span class="split-total recurring-breakdown-total"></span></h3>
+            <div class="chart-card">
+              <pie-chart class="recurring-pie"></pie-chart>
+            </div>
+          </div>
+          <div class="split-breakdown-part">
+            <h3>One-time <span class="split-total onetime-breakdown-total"></span></h3>
+            <div class="chart-card">
+              <pie-chart class="onetime-pie"></pie-chart>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -96,6 +118,10 @@ export class DashboardView extends HTMLElement {
       const form = this.querySelector('withdraw-funds-form') as WithdrawFundsForm;
       form.withdrawalDate = this.dateInViewedMonth();
       (this.querySelector('.withdraw-modal') as ModalDialog).open();
+    });
+
+    this.querySelectorAll<HTMLButtonElement>('.breakdown-toggle button').forEach((btn) => {
+      btn.addEventListener('click', () => this.setBreakdownView(btn.dataset.view as BreakdownView));
     });
 
     this.addEventListener('edit', (e) => {
@@ -138,6 +164,15 @@ export class DashboardView extends HTMLElement {
     const { selectedMonth } = appStore.getState();
     const now = Date.now();
     return startOfMonth(now) === selectedMonth ? now : selectedMonth;
+  }
+
+  /** Switches the Expense breakdown card between one combined pie and a recurring/one-time split. */
+  private setBreakdownView(view: BreakdownView): void {
+    this.querySelectorAll('.breakdown-toggle button').forEach((b) =>
+      b.setAttribute('aria-pressed', String((b as HTMLElement).dataset.view === view)),
+    );
+    (this.querySelector('.combined-breakdown') as HTMLElement).hidden = view !== 'combined';
+    (this.querySelector('.split-breakdown') as HTMLElement).hidden = view !== 'split';
   }
 
   private closeModals(): void {
@@ -199,8 +234,23 @@ export class DashboardView extends HTMLElement {
     withdrawBtn.disabled = !canWithdraw;
     withdrawBtn.title = canWithdraw ? '' : 'No budget has funds to withdraw';
 
-    const pie = this.querySelector('pie-chart') as PieChart;
+    // Both views are kept current so toggling between them never shows stale data.
+    const pie = this.querySelector('.expense-pie') as PieChart;
     pie.data = categoryBreakdownBySubcategory(notBudgeted, categories, 'expense');
+    const recurringPie = this.querySelector('.recurring-pie') as PieChart;
+    recurringPie.data = categoryBreakdownBySubcategory(
+      expenses.filter((t) => t.recurrence !== null),
+      categories,
+      'expense',
+    );
+    const oneTimePie = this.querySelector('.onetime-pie') as PieChart;
+    oneTimePie.data = categoryBreakdownBySubcategory(
+      expenses.filter((t) => t.recurrence === null),
+      categories,
+      'expense',
+    );
+    this.querySelector('.recurring-breakdown-total')!.textContent = formatCents(recurringExpense);
+    this.querySelector('.onetime-breakdown-total')!.textContent = formatCents(oneTimeExpense);
   }
 }
 

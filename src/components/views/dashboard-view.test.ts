@@ -521,3 +521,114 @@ describe('dashboard-view budget withdrawals', () => {
     expect(dialog.open).toBe(false);
   });
 });
+
+describe('dashboard-view expense breakdown views', () => {
+  const categories = [
+    { id: 'bills', name: 'Bills', parentId: null, color: '#a142f4', createdAt: 0 },
+    { id: 'food', name: 'Food', parentId: null, color: '#1e8e3e', createdAt: 0 },
+    { id: 'salary', name: 'Salary', parentId: null, color: '#12b5cb', createdAt: 0 },
+  ];
+
+  function toggle(el: HTMLElement, view: 'combined' | 'split'): HTMLButtonElement {
+    return el.querySelector(`.breakdown-toggle button[data-view="${view}"]`) as HTMLButtonElement;
+  }
+
+  function isHidden(el: HTMLElement, selector: string): boolean {
+    return (el.querySelector(selector) as HTMLElement).hidden;
+  }
+
+  /** Category labels ("Name — amount (share)") in a pie chart's legend, once its scheduled render has run. */
+  async function legend(el: HTMLElement, selector: string): Promise<string[]> {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const pie = el.querySelector(selector)!;
+    return [...pie.shadowRoot!.querySelectorAll('.legend-name')].map((n) => n.textContent!);
+  }
+
+  function seedMixedMonth(): void {
+    appStore.setState({
+      categories,
+      budgets: [makeBudget({ id: 'b1' })],
+      transactions: [
+        makeTransaction({ id: 'rent', categoryId: 'bills', amount: 150000, recurrence: 'monthly' }),
+        makeTransaction({ id: 'insurance', categoryId: 'bills', amount: 120000, recurrence: 'yearly' }),
+        makeTransaction({ id: 'groceries', categoryId: 'food', amount: 8000 }),
+        makeTransaction({ id: 'pay', type: 'income', categoryId: 'salary', amount: 400000 }),
+        makeTransaction({ id: 'budgeted', categoryId: 'food', amount: 5000, budgetId: 'b1' }),
+      ],
+    });
+  }
+
+  it('starts in the combined view with the split view hidden', () => {
+    const el = mount();
+    expect(toggle(el, 'combined').getAttribute('aria-pressed')).toBe('true');
+    expect(toggle(el, 'split').getAttribute('aria-pressed')).toBe('false');
+    expect(isHidden(el, '.combined-breakdown')).toBe(false);
+    expect(isHidden(el, '.split-breakdown')).toBe(true);
+  });
+
+  it('switches to the split view and back', () => {
+    const el = mount();
+    toggle(el, 'split').click();
+    expect(toggle(el, 'split').getAttribute('aria-pressed')).toBe('true');
+    expect(toggle(el, 'combined').getAttribute('aria-pressed')).toBe('false');
+    expect(isHidden(el, '.combined-breakdown')).toBe(true);
+    expect(isHidden(el, '.split-breakdown')).toBe(false);
+
+    toggle(el, 'combined').click();
+    expect(toggle(el, 'combined').getAttribute('aria-pressed')).toBe('true');
+    expect(isHidden(el, '.combined-breakdown')).toBe(false);
+    expect(isHidden(el, '.split-breakdown')).toBe(true);
+  });
+
+  it('combines recurring and one-time expenses in the standard view', async () => {
+    seedMixedMonth();
+    const el = mount();
+    expect(await legend(el, '.expense-pie')).toEqual([
+      'Bills — $1,600.00 (95%)',
+      'Food — $80.00 (5%)',
+    ]);
+  });
+
+  it('charts recurring and one-time expenses separately in the split view', async () => {
+    seedMixedMonth();
+    const el = mount();
+    toggle(el, 'split').click();
+    expect(await legend(el, '.recurring-pie')).toEqual(['Bills — $1,600.00 (100%)']);
+    expect(await legend(el, '.onetime-pie')).toEqual(['Food — $80.00 (100%)']);
+  });
+
+  it('totals each split at monthly-equivalent amounts, matching the stat tiles', () => {
+    seedMixedMonth();
+    const el = mount();
+    // Rent 1,500 + yearly insurance 1,200 / 12 = 100 => 1,600 recurring. The budget-paid expense
+    // and the paycheck are left out, just like the combined pie.
+    expect(stat(el, 'recurring-breakdown-total')).toBe('$1,600.00');
+    expect(stat(el, 'onetime-breakdown-total')).toBe('$80.00');
+    expect(stat(el, 'recurring-breakdown-total')).toBe(stat(el, 'recurring-expense-stat'));
+    expect(stat(el, 'onetime-breakdown-total')).toBe(stat(el, 'onetime-expense-stat'));
+  });
+
+  it('shows an empty chart for a split with no expenses', async () => {
+    appStore.setState({
+      categories,
+      transactions: [makeTransaction({ id: 'groceries', categoryId: 'food', amount: 8000 })],
+    });
+    const el = mount();
+    toggle(el, 'split').click();
+    expect(await legend(el, '.recurring-pie')).toEqual([]);
+    expect(el.querySelector('.recurring-pie')!.shadowRoot!.textContent).toContain('No data yet');
+    expect(stat(el, 'recurring-breakdown-total')).toBe('$0.00');
+  });
+
+  it('follows the selected month and keeps the chosen view when data changes', async () => {
+    seedMixedMonth();
+    const el = mount();
+    toggle(el, 'split').click();
+    // In June the recurring rent/insurance haven't started and there are no one-offs.
+    appStore.setState({ selectedMonth: startOfMonth(new Date(2026, 5, 15).getTime()) });
+    expect(isHidden(el, '.split-breakdown')).toBe(false);
+    expect(stat(el, 'recurring-breakdown-total')).toBe('$0.00');
+    expect(stat(el, 'onetime-breakdown-total')).toBe('$0.00');
+    expect(await legend(el, '.onetime-pie')).toEqual([]);
+  });
+});
