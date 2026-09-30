@@ -8,6 +8,7 @@ import { AppEvents } from '@/state/events';
 import { startOfMonth } from '@/utils/date';
 import type { Transaction } from '@/models/transaction';
 import type { Category } from '@/models/category';
+import type { Budget } from '@/models/budget';
 
 function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
   return {
@@ -239,5 +240,47 @@ describe('transaction-list grouping', () => {
     expect(recurring.querySelector('.subcategory-title')!.textContent).toBe('Flights');
     expect(oneTime.querySelector('.group-title')!.textContent).toBe('One-time');
     expect(oneTime.querySelector('.category-title')!.textContent).toContain('Food');
+  });
+});
+
+describe('transaction-list budget badge', () => {
+  const vacation: Budget = {
+    id: 'b1',
+    name: 'Vacation Fund',
+    description: '',
+    targetAmount: 100000,
+    periodType: 'monthly',
+    startDate: 0,
+    endDate: null,
+    categoryId: null,
+    subcategoryId: null,
+    createdAt: 0,
+  };
+
+  function badges(el: HTMLElement): Map<string, string | null> {
+    return new Map(
+      [...el.shadowRoot!.querySelectorAll('transaction-list-item')].map((item) => [
+        item.shadowRoot!.querySelector('.note')!.textContent!,
+        item.shadowRoot!.querySelector('.budget-badge')?.getAttribute('aria-label') ?? null,
+      ]),
+    );
+  }
+
+  it('badges only the expenses paid from a budget, naming that budget', () => {
+    appStore.setState({ budgets: [vacation] });
+    const el = setup([
+      makeTransaction({ id: 'a', note: 'Hotel', budgetId: 'b1' }),
+      makeTransaction({ id: 'b', note: 'Groceries' }),
+      makeTransaction({ id: 'c', note: 'Paycheck', type: 'income' }),
+      makeTransaction({ id: 'd', note: 'Top up', type: 'allocation', budgetId: 'b1' }),
+    ]);
+    expect(badges(el)).toEqual(
+      new Map([
+        ['Hotel', 'Paid from budget: Vacation Fund'],
+        ['Groceries', null],
+        ['Paycheck', null],
+        ['Top up', null],
+      ]),
+    );
   });
 });
