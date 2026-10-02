@@ -192,10 +192,13 @@ describe('transaction-list-item budget badge', () => {
     const b = badge(el)!;
     expect(b).toBeTruthy();
     expect(b.querySelector('app-icon')!.getAttribute('name')).toBe('wallet');
-    expect(b.getAttribute('aria-label')).toBe('Paid from budget: Vacation Fund');
+    // The budget name is spelled out so it's readable on touch devices, which can't hover.
+    expect(b.querySelector('.budget-name')!.textContent).toBe('Vacation Fund');
+    expect(b.textContent).toBe('Paid from budget: Vacation Fund');
     expect(b.getAttribute('title')).toBe('Paid from budget: Vacation Fund');
-    // The badge sits beside the note without becoming part of its text.
+    // The badge sits on its own line beneath the category and date, apart from the note.
     expect(el.shadowRoot!.querySelector('.note')!.textContent).toBe('Flights');
+    expect(el.shadowRoot!.querySelector('.meta')!.nextElementSibling).toBe(b);
   });
 
   it('shows no badge on an expense not linked to a budget', () => {
@@ -236,7 +239,7 @@ describe('transaction-list-item budget badge', () => {
       displayDate: Date.now(),
       displayAmount: 1000,
     });
-    expect(badge(el)!.getAttribute('aria-label')).toBe('Paid from budget: Deleted budget');
+    expect(badge(el)!.querySelector('.budget-name')!.textContent).toBe('Deleted budget');
   });
 
   it('shows the badge on each projected occurrence of a recurring budget expense', () => {
@@ -250,6 +253,6 @@ describe('transaction-list-item budget badge', () => {
       '#9aa0a6',
       'Emergency Fund',
     );
-    expect(badge(el)!.getAttribute('aria-label')).toBe('Paid from budget: Emergency Fund');
+    expect(badge(el)!.querySelector('.budget-name')!.textContent).toBe('Emergency Fund');
   });
 });

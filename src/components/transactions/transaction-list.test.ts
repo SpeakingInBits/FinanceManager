@@ -298,7 +298,7 @@ describe('transaction-list budget badge', () => {
     return new Map(
       [...el.shadowRoot!.querySelectorAll('transaction-list-item')].map((item) => [
         item.shadowRoot!.querySelector('.note')!.textContent!,
-        item.shadowRoot!.querySelector('.budget-badge')?.getAttribute('aria-label') ?? null,
+        item.shadowRoot!.querySelector('.budget-badge')?.textContent ?? null,
       ]),
     );
   }
